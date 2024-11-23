@@ -1,35 +1,39 @@
 version: '3.8'
 
 services:
-  django:
+  web:
     build: .
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    environment:
-      - DEBUG=False
-      - SECRET_KEY=${SECRET_KEY}
-      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
-      - DB_NAME=${DB_NAME}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=inkteo_db
-      - DB_PORT=5432
-    depends_on:
-      - postgres
+    restart: always
+    command: >
+      bash -c "python manage.py migrate &&
+              python manage.py collectstatic --noinput &&
+              gunicorn core.wsgi:application --bind 0.0.0.0:80"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+    environment:
+      - DEBUG=False
+      - SECRET_KEY=TKInkteo3506
+      - ALLOWED_HOSTS=panel.inkteo.com,194.113.64.207,inkteo-inkteo.72xy9m.easypanel.host
+      - DB_NAME=inkteo
+      - DB_USER=postgres
+      - DB_PASSWORD=Heysem35Saint!
+      - DB_HOST=postgres
+      - DB_PORT=5432
+    depends_on:
+      - postgres
+    ports:
+      - "80:80"
 
   postgres:
     image: postgres:14
-    restart: unless-stopped
-    environment:
-      - POSTGRES_DB=${DB_NAME}
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=inkteo
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=Heysem35Saint!
 
 volumes:
   postgres_data:
