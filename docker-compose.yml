@@ -3,6 +3,7 @@ version: '3.8'
 services:
   django:
     build: .
+    restart: unless-stopped
     ports:
       - "80:80"
     environment:
@@ -12,7 +13,7 @@ services:
       - DB_NAME=${DB_NAME}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
-      - DB_HOST=postgres
+      - DB_HOST=inkteo_db
       - DB_PORT=5432
     depends_on:
       - postgres
@@ -22,6 +23,7 @@ services:
 
   postgres:
     image: postgres:14
+    restart: unless-stopped
     environment:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}

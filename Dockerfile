@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
@@ -15,9 +15,9 @@ RUN pip install gunicorn
 
 COPY . .
 
-RUN mkdir -p /app/staticfiles
-RUN python manage.py collectstatic --noinput
+RUN mkdir -p /app/staticfiles /app/media
+RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 80
 
-CMD gunicorn core.wsgi:application --bind 0.0.0.0:80
+CMD ["gunicorn", "--bind", "0.0.0.0:80", "core.wsgi:application"]
