@@ -18,12 +18,17 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.static import serve
 
 urlpatterns = [
     path('', include('pages.urls')),  # Ana sayfa için
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('dashboard/', include('dashboard.urls')),
+    # Static dosyalar için özel URL
+    path('static/<path:path>', serve, {
+        'document_root': settings.STATIC_ROOT,
+    }),
 ]
 
 # Her durumda static dosyaları serve et

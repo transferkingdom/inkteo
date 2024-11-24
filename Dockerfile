@@ -18,17 +18,13 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-RUN pip install gunicorn whitenoise
+RUN pip install gunicorn
 
-# Önce static dizinleri kopyala
-COPY static /app/static
-COPY staticfiles /app/staticfiles
-
-# Sonra geri kalan dosyaları kopyala
+# Projeyi kopyala
 COPY . .
 
-# İzinleri ayarla
-RUN chmod -R 755 /app/static /app/staticfiles
+# Static dizinleri oluştur
+RUN mkdir -p staticfiles && chmod -R 755 static staticfiles
 
 # Static dosyaları topla
 RUN python manage.py collectstatic --noinput --clear
