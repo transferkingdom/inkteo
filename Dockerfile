@@ -13,22 +13,18 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Virtual environment
 RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Requirements
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 RUN pip install gunicorn whitenoise
 
-# Projeyi kopyala
 COPY . .
 
-# Static dizinleri oluştur
 RUN mkdir -p staticfiles static media \
     && chmod -R 755 staticfiles static media
 
-# Static dosyaları topla
 RUN python manage.py collectstatic --noinput
 
 EXPOSE 80
