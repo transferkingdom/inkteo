@@ -1,24 +1,43 @@
-*.pyc
+# Python
 __pycache__/
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
 .Python
 env/
-venv/
-.env
-.venv
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Django
 *.log
-.pytest_cache/
-.DS_Store
+local_settings.py
 db.sqlite3
-media/
-staticfiles/staticfiles/
+db.sqlite3-journal
+
+# Static & Media
+/staticfiles/*
+!/staticfiles/.gitkeep
+/media/*
+!/media/.gitkeep
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
