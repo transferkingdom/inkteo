@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'TKInkteo3506')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,panel.inkteo.com,194.113.64.207').split(',')
 
@@ -34,7 +34,6 @@ INSTALLED_APPS = [
     'allauth.socialaccount',
     'crispy_forms',
     'crispy_tailwind',
-    'whitenoise.runserver_nostatic',  # Whitenoise için ekledik
 
     'accounts.apps.AccountsConfig',
     'dashboard.apps.DashboardConfig',
@@ -133,7 +132,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Security Settings for Production
 if not DEBUG:
-    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
