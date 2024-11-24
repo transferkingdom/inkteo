@@ -120,10 +120,10 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_ROOT = '/etc/easypanel/projects/inkteo/inkteo/code/staticfiles'
 
 STATICFILES_DIRS = [
-    BASE_DIR / 'static'
+    '/etc/easypanel/projects/inkteo/inkteo/code/static'
 ]
 
 STATICFILES_FINDERS = [

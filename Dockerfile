@@ -20,15 +20,15 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 RUN pip install gunicorn
 
-COPY . .
+RUN mkdir -p /etc/easypanel/projects/inkteo/inkteo/code/staticfiles \
+    /etc/easypanel/projects/inkteo/inkteo/code/static \
+    && chmod -R 755 /etc/easypanel/projects/inkteo/inkteo/code/staticfiles \
+    /etc/easypanel/projects/inkteo/inkteo/code/static
 
-RUN mkdir -p staticfiles static/css static/js static/images \
-    && chmod -R 755 staticfiles static
+COPY . .
 
 RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 80
-
-VOLUME ["/app/static", "/app/staticfiles"]
 
 CMD ["sh", "-c", "python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:80 --workers 3"]
