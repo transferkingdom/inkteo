@@ -120,10 +120,10 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
+    BASE_DIR / 'static'
 ]
 
 STATICFILES_FINDERS = [
@@ -176,3 +176,7 @@ if DEBUG:
         'http://localhost:8000',
         'http://127.0.0.1:8000'
     ])
+
+# Güvenlik ayarları
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # SSL redirect'i kapatıyoruz şimdilik
