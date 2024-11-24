@@ -42,7 +42,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # Whitenoise middleware
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -119,7 +118,7 @@ USE_I18N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 STATICFILES_DIRS = [
@@ -127,7 +126,7 @@ STATICFILES_DIRS = [
 ]
 
 # Media files (Uploads)
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # Security Settings for Production
@@ -163,6 +162,8 @@ CRISPY_TEMPLATE_PACK = "tailwind"
 CSRF_TRUSTED_ORIGINS = [
     'https://panel.inkteo.com',
     'http://panel.inkteo.com',
+    'https://inkteo-inkteo.72xy9m.easypanel.host',
+    'http://inkteo-inkteo.72xy9m.easypanel.host'
 ]
 if DEBUG:
     CSRF_TRUSTED_ORIGINS.extend([
