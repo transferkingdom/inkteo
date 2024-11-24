@@ -25,7 +25,7 @@ COPY . .
 RUN mkdir -p staticfiles static media \
     && chmod -R 755 staticfiles static media
 
-RUN python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 80
 
