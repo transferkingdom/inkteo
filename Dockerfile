@@ -16,15 +16,22 @@ RUN apt-get update && apt-get install -y \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Requirements yükle
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install gunicorn whitenoise
 
+# Önce static dizini oluştur
+RUN mkdir -p /app/staticfiles /app/static /app/media
+RUN chmod -R 755 /app/staticfiles /app/static /app/media
+
+# Tüm projeyi kopyala
 COPY . .
 
 # Static dosyaları topla
-RUN python manage.py collectstatic --noinput
+RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 80
 
-CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:80"]
+# Gunicorn başlat
+CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:80", "--workers", "3"]
