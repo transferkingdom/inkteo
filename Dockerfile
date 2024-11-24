@@ -18,15 +18,16 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-RUN pip install gunicorn
+RUN pip install gunicorn whitenoise
 
-RUN mkdir -p /etc/easypanel/projects/inkteo/inkteo/code/staticfiles \
-    /etc/easypanel/projects/inkteo/inkteo/code/static \
-    && chmod -R 755 /etc/easypanel/projects/inkteo/inkteo/code/staticfiles \
-    /etc/easypanel/projects/inkteo/inkteo/code/static
-
+# Projeyi kopyala
 COPY . .
 
+# Static dizinleri oluştur
+RUN mkdir -p staticfiles static/css static/js static/images \
+    && chmod -R 755 staticfiles static
+
+# Static dosyaları topla
 RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 80
