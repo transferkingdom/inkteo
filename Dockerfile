@@ -12,26 +12,25 @@ RUN apt-get update && apt-get install -y \
     python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Virtual environment oluştur ve aktifleştir
+# Virtual environment
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Requirements yükle
+# Requirements
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install gunicorn whitenoise
 
-# Önce static dizini oluştur
-RUN mkdir -p /app/staticfiles /app/static /app/media
-RUN chmod -R 755 /app/staticfiles /app/static /app/media
+# Proje kopyalanmadan önce dizinleri oluştur
+RUN mkdir -p /app/static /app/media /app/staticfiles
+RUN chmod -R 777 /app/static /app/media /app/staticfiles
 
-# Tüm projeyi kopyala
+# Projeyi kopyala
 COPY . .
 
 # Static dosyaları topla
-RUN python manage.py collectstatic --noinput --clear
+RUN DJANGO_SETTINGS_MODULE=core.settings python manage.py collectstatic --noinput --clear
 
 EXPOSE 80
 
-# Gunicorn başlat
 CMD ["gunicorn", "core.wsgi:application", "--bind", "0.0.0.0:80", "--workers", "3"]
