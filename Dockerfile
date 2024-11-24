@@ -20,19 +20,11 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 RUN pip install gunicorn
 
-# Projeyi kopyala
 COPY . .
 
-# Easypanel volume dizinini oluştur
-RUN mkdir -p /etc/easypanel/volumes/inkteo/staticfiles \
-    && chmod -R 777 /etc/easypanel/volumes/inkteo/staticfiles
-
-# Static dosyaları topla
-RUN python manage.py collectstatic --noinput --clear
+# Static dizini oluştur
+RUN mkdir -p /data/staticfiles && chmod -R 755 /data/staticfiles
 
 EXPOSE 80
 
-# Volume mount noktası
-VOLUME ["/etc/easypanel/volumes/inkteo/staticfiles"]
-
-CMD ["sh", "-c", "python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:80 --workers 3"]
+CMD ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && gunicorn core.wsgi:application --bind 0.0.0.0:80 --workers 3"]

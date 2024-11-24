@@ -119,7 +119,7 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-STATIC_ROOT = '/etc/easypanel/volumes/inkteo/staticfiles'
+STATIC_ROOT = '/data/staticfiles'
 
 STATICFILES_DIRS = [
     BASE_DIR / 'static'
