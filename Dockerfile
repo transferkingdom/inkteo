@@ -17,20 +17,18 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install gunicorn whitenoise
+RUN pip install -r requirements.txt
+RUN pip install gunicorn
 
 COPY . .
 
-RUN mkdir -p /app/staticfiles /app/static /app/media \
-    && chmod -R 755 /app/staticfiles /app/static /app/media
-
-ENV DEBUG=False
-
-RUN python -c "import django; django.setup(); from django.contrib.admin.utils import get_static_files; [print(f) for f in get_static_files()]"
+RUN mkdir -p staticfiles static/css static/js static/images \
+    && chmod -R 755 staticfiles static
 
 RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 80
+
+VOLUME ["/app/static", "/app/staticfiles"]
 
 CMD ["sh", "-c", "python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:80 --workers 3"]
