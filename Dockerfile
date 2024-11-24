@@ -18,18 +18,21 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-RUN pip install gunicorn whitenoise
+RUN pip install gunicorn
 
 # Projeyi kopyala
 COPY . .
 
-# Static dizinleri oluştur
-RUN mkdir -p staticfiles static/css static/js static/images \
-    && chmod -R 755 staticfiles static
+# Easypanel volume dizinini oluştur
+RUN mkdir -p /etc/easypanel/volumes/inkteo/staticfiles \
+    && chmod -R 777 /etc/easypanel/volumes/inkteo/staticfiles
 
 # Static dosyaları topla
 RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 80
+
+# Volume mount noktası
+VOLUME ["/etc/easypanel/volumes/inkteo/staticfiles"]
 
 CMD ["sh", "-c", "python manage.py migrate && gunicorn core.wsgi:application --bind 0.0.0.0:80 --workers 3"]
