@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static %}
+{% load i18n %}
+{% load account %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col md:flex-row">
+    <!-- Sol taraf - Logo ve form -->
+    <div class="w-full md:w-1/2 flex items-center justify-center p-8 md:p-16">
+        <div class="w-full max-w-md">
+            <!-- Logo -->
+            <div class="mb-12 text-center">
+                <img src="{% static 'images/logo.png' %}" alt="Inkteo POD" class="h-20 mx-auto">
+            </div>
+
+            <!-- Confirmation Content -->
+            <div class="bg-white p-8 rounded-lg shadow-md">
+                {% if confirmation %}
+                    <div class="text-center">
+                        <div class="text-[#9BD5E8] mb-6">
+                            <svg class="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+
+                        <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "One Last Step!" %}</h2>
+                        <p class="text-gray-600 mb-6">
+                            {% blocktrans with email=confirmation.email_address.email %}
+                            Please confirm that <span class="font-medium">{{ email }}</span> is your email address by clicking the button below.
+                            {% endblocktrans %}
+                        </p>
+
+                        <form method="post" action="{% url 'account_confirm_email' confirmation.key %}">
+                            {% csrf_token %}
+                            <button type="submit" 
+                                class="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#9BD5E8] hover:bg-[#88C1D4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9BD5E8] transition duration-150 ease-in-out">
+                                {% trans "Confirm Email Address" %}
+                            </button>
+                        </form>
+                    </div>
+                {% else %}
+                    <div class="text-center">
+                        <div class="text-red-600 mb-6">
+                            <svg class="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+
+                        <h2 class="text-2xl font-bold text-gray-900 mb-4">{% trans "Invalid Link" %}</h2>
+                        <p class="text-gray-600 mb-6">
+                            {% trans "This confirmation link has expired or is invalid." %}
+                        </p>
+
+                        <a href="{% url 'account_email' %}" 
+                            class="inline-block w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#9BD5E8] hover:bg-[#88C1D4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9BD5E8] transition duration-150 ease-in-out text-center">
+                            {% trans "Request New Confirmation Email" %}
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Sağ taraf - Dekoratif alan -->
+    <div class="hidden md:block md:w-1/2 bg-gradient-to-br from-[#9BD5E8] to-[#88C1D4]">
+        <div class="flex items-center justify-center h-full p-16">
+            <div class="max-w-md text-white">
+                <h2 class="text-3xl font-bold mb-6">Email Verification</h2>
+                <p class="text-lg">Secure your Inkteo POD account by verifying your email address.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

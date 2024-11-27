@@ -154,10 +154,13 @@ SITE_ID = 1
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'none'
-LOGIN_REDIRECT_URL = 'dashboard:home'
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+LOGIN_REDIRECT_URL = 'home'
 ACCOUNT_LOGOUT_REDIRECT_URL = 'account_login'
 LOGIN_URL = 'account_login'
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = 'account_login'
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = 'home'
 
 # Crispy Forms settings
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
@@ -189,7 +192,7 @@ else:
 # Allauth mesaj ayarları
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'none'
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
 
 # Yeni rate limit ayarı
 ACCOUNT_RATE_LIMITS = {
@@ -203,3 +206,18 @@ ACCOUNT_ERROR_MESSAGES = {
     'inactive': 'This account is inactive.',
     'email_taken': 'An account already exists with this email address.',
 }
+
+# Email ayarları
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'sainteagle@gmail.com')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'wtdy jcnq jqqi kmvi')
+DEFAULT_FROM_EMAIL = 'Inkteo <sainteagle@gmail.com>'
+
+# Allauth settings
+ACCOUNT_EMAIL_SUBJECT_PREFIX = ''  # Email konusunda prefix olmasın
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
+ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_EMAIL_TEMPLATE_NAME = 'account/email/email_confirmation_message.html'  # HTML template kullan

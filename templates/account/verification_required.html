@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="min-h-screen flex flex-col md:flex-row">
+    <!-- Sol taraf - Logo ve mesaj -->
+    <div class="w-full md:w-1/2 flex items-center justify-center p-8 md:p-16">
+        <div class="w-full max-w-md">
+            <!-- Logo -->
+            <div class="mb-12 text-center">
+                <img src="{% static 'images/logo.png' %}" alt="Inkteo POD" class="h-20 mx-auto">
+            </div>
+
+            <!-- Mesaj -->
+            <div class="bg-white p-8 rounded-lg shadow-md">
+                <div class="text-[#9BD5E8] mb-6">
+                    <svg class="h-12 w-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
+                </div>
+                
+                <h2 class="text-2xl font-bold text-gray-900 mb-4 text-center">Verify Your Email</h2>
+                <p class="text-gray-600 mb-6 text-center">
+                    We've sent a verification link to your email address. Please check your inbox and verify your account to continue.
+                </p>
+
+                <!-- Resend Button -->
+                <form method="POST" action="{% url 'account_email' %}" class="text-center">
+                    {% csrf_token %}
+                    <button type="submit" name="action_send" 
+                            class="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#9BD5E8] hover:bg-[#88C1D4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9BD5E8] transition duration-150 ease-in-out">
+                        Resend Verification Email
+                    </button>
+                </form>
+            </div>
+
+            <!-- Help Text -->
+            <p class="text-sm text-gray-500 text-center mt-4">
+                Didn't receive the email? Check your spam folder or contact support.
+            </p>
+        </div>
+    </div>
+
+    <!-- Sağ taraf - Dekoratif alan -->
+    <div class="hidden md:block md:w-1/2 bg-gradient-to-br from-[#9BD5E8] to-[#88C1D4]">
+        <div class="flex items-center justify-center h-full p-16">
+            <div class="max-w-md text-white">
+                <h2 class="text-3xl font-bold mb-6">Almost There!</h2>
+                <p class="text-lg">Just one more step to access your Inkteo POD account.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

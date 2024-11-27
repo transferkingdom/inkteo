@@ -1,0 +1,51 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | Inkteo Admin{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        Inkteo Administration
+    </a>
+</h1>
+{% endblock %}
+
+{% block extrastyle %}
+<style>
+    :root {
+        --primary: #9BD5E8;
+        --secondary: #88C1D4;
+        --accent: #FF69B4;
+    }
+    
+    #header {
+        background: var(--primary);
+        color: #fff;
+    }
+    
+    #header a:link, #header a:visited {
+        color: #fff;
+    }
+    
+    .module h2, .module caption, .inline-group h2 {
+        background: var(--primary);
+    }
+    
+    div.breadcrumbs {
+        background: var(--secondary);
+    }
+    
+    .button, input[type=submit], input[type=button], .submit-row input, a.button {
+        background: var(--primary);
+    }
+    
+    .button:hover, input[type=submit]:hover, input[type=button]:hover {
+        background: var(--secondary);
+    }
+    
+    .button.default, input[type=submit].default, .submit-row input.default {
+        background: var(--accent);
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% load account %}{% user_display user as user_display %}{% load i18n %}{% autoescape off %}{% blocktrans with site_name=current_site.name site_domain=current_site.domain %}Hello from Inkteo!
+
+You're receiving this e-mail because user {{ user_display }} has given your e-mail address to register an account on {{ site_domain }}.
+
+To confirm this is correct, please click the button below:{% endblocktrans %}
+
+{{ activate_url }}
+
+{% blocktrans with site_name=current_site.name site_domain=current_site.domain %}If you did not request this, you can safely ignore this email.
+
+Thank you from {{ site_name }}!
+{{ site_domain }}{% endblocktrans %}
+{% endautoescape %}
