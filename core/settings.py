@@ -185,3 +185,21 @@ if DEBUG:
     STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 else:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+# Allauth mesaj ayarları
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_AUTHENTICATION_METHOD = 'email'
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+
+# Yeni rate limit ayarı
+ACCOUNT_RATE_LIMITS = {
+    # 5 başarısız denemeden sonra 5 dakika (300 saniye) bekleme
+    'login_failed': '5/300m',
+}
+
+# Özel hata mesajları
+ACCOUNT_ERROR_MESSAGES = {
+    'invalid_login': 'Invalid email or password. Please try again.',
+    'inactive': 'This account is inactive.',
+    'email_taken': 'An account already exists with this email address.',
+}
