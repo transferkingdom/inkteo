@@ -151,14 +151,32 @@ AUTHENTICATION_BACKENDS = [
 
 # Django-allauth settings
 SITE_ID = 1
+
+# Account settings
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_USERNAME_REQUIRED = False
 ACCOUNT_AUTHENTICATION_METHOD = 'email'
 ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
+ACCOUNT_EMAIL_SUBJECT_PREFIX = ''
+ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
+ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
+
+# Rate limiting
+ACCOUNT_RATE_LIMITS = {
+    'login_failed': '5/300m',
+}
+
+# Custom messages
+ACCOUNT_ERROR_MESSAGES = {
+    'invalid_login': 'Invalid email or password. Please try again.',
+    'inactive': 'This account is inactive.',
+    'email_taken': 'An account already exists with this email address.',
+}
+
+# Redirects
 LOGIN_REDIRECT_URL = 'home'
 ACCOUNT_LOGOUT_REDIRECT_URL = 'account_login'
 LOGIN_URL = 'account_login'
-ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = 'account_login'
 ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = 'home'
 
@@ -189,35 +207,11 @@ if DEBUG:
 else:
     STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
-# Allauth mesaj ayarları
-ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_AUTHENTICATION_METHOD = 'email'
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
-
-# Yeni rate limit ayarı
-ACCOUNT_RATE_LIMITS = {
-    # 5 başarısız denemeden sonra 5 dakika (300 saniye) bekleme
-    'login_failed': '5/300m',
-}
-
-# Özel hata mesajları
-ACCOUNT_ERROR_MESSAGES = {
-    'invalid_login': 'Invalid email or password. Please try again.',
-    'inactive': 'This account is inactive.',
-    'email_taken': 'An account already exists with this email address.',
-}
-
-# Email ayarları
+# Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'sainteagle@gmail.com')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'wtdy jcnq jqqi kmvi')
-DEFAULT_FROM_EMAIL = 'Inkteo <sainteagle@gmail.com>'
-
-# Allauth settings
-ACCOUNT_EMAIL_SUBJECT_PREFIX = ''  # Email konusunda prefix olmasın
-ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS = 3
-ACCOUNT_EMAIL_VERIFICATION = 'mandatory'
-ACCOUNT_EMAIL_TEMPLATE_NAME = 'account/email/email_confirmation_message.html'  # HTML template kullan
+DEFAULT_FROM_EMAIL = f"Inkteo <{os.environ.get('EMAIL_HOST_USER', 'sainteagle@gmail.com')}>"
