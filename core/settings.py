@@ -103,9 +103,16 @@ else:
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {
+            'user_attributes': ('email',),
+            'max_similarity': 0.7,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -179,6 +186,10 @@ ACCOUNT_ERROR_MESSAGES = {
     'invalid_login': 'Invalid email or password. Please try again.',
     'inactive': 'This account is inactive.',
     'email_taken': 'An account already exists with this email address.',
+    'password_mismatch': 'The two password fields didn't match.',
+    'password_too_short': 'Password must be at least 8 characters long.',
+    'password_too_common': 'Password is too common.',
+    'password_entirely_numeric': 'Password cannot be entirely numeric.',
 }
 
 # Email Configuration

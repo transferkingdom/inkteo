@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% load static %}
-
-{% block title %}Sign Up{% endblock %}
+{% load i18n %}
+{% load crispy_forms_tags %}
 
 {% block content %}
 <div class="min-h-screen flex flex-col md:flex-row">
-    <!-- Sol taraf - Form -->
+    <!-- Sol taraf - Logo ve form -->
     <div class="w-full md:w-1/2 flex items-center justify-center p-8 md:p-16">
         <div class="w-full max-w-md">
             <!-- Logo -->
@@ -13,78 +13,64 @@
                 <img src="{% static 'images/logo.png' %}" alt="Inkteo POD" class="h-20 mx-auto">
             </div>
 
-            <div class="space-y-8">
-                <div class="text-center">
-                    <h2 class="text-2xl font-bold text-gray-900">Create your account</h2>
-                    <p class="mt-2 text-sm text-gray-600">Start your POD business journey</p>
-                </div>
-
-                <form method="POST" action="{% url 'account_signup' %}" class="mt-8 space-y-6">
+            <!-- Form -->
+            <div class="bg-white p-8 rounded-lg shadow-md">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">{% trans "Sign Up" %}</h2>
+                
+                <form class="signup" id="signup_form" method="post" action="{% url 'account_signup' %}">
                     {% csrf_token %}
-
-                    <!-- Email Input -->
-                    <div class="space-y-2">
-                        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
-                        <input type="email" name="email" id="email" required
-                               class="block w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm 
-                                      focus:ring-2 focus:ring-[#9BD5E8] focus:border-[#9BD5E8]"
-                               placeholder="you@example.com">
+                    
+                    <!-- Email field -->
+                    <div class="mb-4">
+                        {{ form.email|as_crispy_field }}
                     </div>
 
-                    <!-- Password Input -->
-                    <div class="space-y-2">
-                        <label for="password1" class="block text-sm font-medium text-gray-700">Password</label>
-                        <div class="relative">
-                            <input type="password" name="password1" id="password1" required
-                                   class="block w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm 
-                                          focus:ring-2 focus:ring-[#9BD5E8] focus:border-[#9BD5E8]"
-                                   placeholder="••••••••">
-                            <button type="button" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                            </button>
+                    <!-- Password field -->
+                    <div class="mb-4">
+                        {{ form.password1|as_crispy_field }}
+                        {% if form.password1.errors %}
+                            <div class="text-red-500 text-sm mt-1">
+                                {% for error in form.password1.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Confirm Password field -->
+                    <div class="mb-6">
+                        {{ form.password2|as_crispy_field }}
+                        {% if form.password2.errors %}
+                            <div class="text-red-500 text-sm mt-1">
+                                {% for error in form.password2.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Form-wide errors -->
+                    {% if form.non_field_errors %}
+                        <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                            {% for error in form.non_field_errors %}
+                                <p class="text-red-500 text-sm">{{ error }}</p>
+                            {% endfor %}
                         </div>
-                    </div>
+                    {% endif %}
 
-                    <!-- Confirm Password Input -->
-                    <div class="space-y-2">
-                        <label for="password2" class="block text-sm font-medium text-gray-700">Confirm Password</label>
-                        <div class="relative">
-                            <input type="password" name="password2" id="password2" required
-                                   class="block w-full px-4 py-3 rounded-lg border border-gray-300 shadow-sm 
-                                          focus:ring-2 focus:ring-[#9BD5E8] focus:border-[#9BD5E8]"
-                                   placeholder="••••••••">
-                            <button type="button" class="absolute right-3 top-3 text-gray-400 hover:text-gray-600">
-                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <button type="submit" 
-                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg 
-                                   shadow-sm text-sm font-medium text-white bg-[#9BD5E8] hover:bg-[#88C1D4] 
-                                   focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9BD5E8]">
-                        Create Account
+                    <!-- Submit button -->
+                    <button type="submit" class="w-full py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-[#9BD5E8] hover:bg-[#88C1D4] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#9BD5E8] transition duration-150 ease-in-out">
+                        {% trans "Sign Up" %}
                     </button>
                 </form>
 
-                <div class="text-center">
-                    <p class="text-sm text-gray-600">
-                        Already have an account?
-                        <a href="{% url 'account_login' %}" class="font-medium text-[#9BD5E8] hover:text-[#88C1D4]">
-                            Sign in
-                        </a>
-                    </p>
-                </div>
+                <!-- Login link -->
+                <p class="mt-6 text-center text-sm text-gray-500">
+                    {% trans "Already have an account?" %}
+                    <a href="{{ login_url }}" class="font-medium text-[#9BD5E8] hover:text-[#88C1D4]">
+                        {% trans "Sign In" %}
+                    </a>
+                </p>
             </div>
         </div>
     </div>
@@ -93,33 +79,10 @@
     <div class="hidden md:block md:w-1/2 bg-gradient-to-br from-[#9BD5E8] to-[#88C1D4]">
         <div class="flex items-center justify-center h-full p-16">
             <div class="max-w-md text-white">
-                <h2 class="text-3xl font-bold mb-6">Welcome to Inkteo POD</h2>
-                <p class="text-lg">Create and manage your print-on-demand products with ease.</p>
+                <h2 class="text-3xl font-bold mb-6">Welcome to Inkteo!</h2>
+                <p class="text-lg">Create your account and start designing your custom products today.</p>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-    // Password visibility toggle for both password fields
-    document.querySelectorAll('button[type="button"]').forEach(button => {
-        button.addEventListener('click', function() {
-            const input = this.previousElementSibling;
-            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
-            input.setAttribute('type', type);
-            
-            // Toggle icon
-            if (type === 'text') {
-                this.innerHTML = `<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"></path>
-                </svg>`;
-            } else {
-                this.innerHTML = `<svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                </svg>`;
-            }
-        });
-    });
-</script>
 {% endblock %}
