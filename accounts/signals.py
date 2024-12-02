@@ -1,55 +1,37 @@
 from django.dispatch import receiver
+from django.db.models.signals import post_save
+from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
-from django.template.loader import render_to_string
-from django.urls import reverse
-from django.contrib.sites.models import Site
-from allauth.account.signals import password_changed
 from django.conf import settings
 import logging
 
-# Logger oluştur
 logger = logging.getLogger(__name__)
 
-@receiver(password_changed)
-def notify_password_change(sender, request, user, **kwargs):
-    logger.debug("Password change signal received")
-    
-    try:
-        current_site = Site.objects.get_current()
-        login_url = f"https://{current_site.domain}{reverse('account_login')}"
-        logger.debug(f"Login URL generated: {login_url}")
+@receiver(post_save, sender=get_user_model())
+def notify_password_change(sender, instance, created, **kwargs):
+    if not created and instance.has_usable_password():  # Yeni kullanıcı değilse ve şifre değişmişse
+        print(f"Password change detected for user: {instance.email}")
+        logger.info(f"Password change detected for user: {instance.email}")
         
-        context = {
-            'user': user,
-            'login_url': login_url,
-        }
-        logger.debug(f"Email context prepared: {context}")
-        
-        # HTML email template render
         try:
-            html_message = render_to_string('account/email/password_changed_confirmation.html', context)
-            logger.debug("HTML template rendered successfully")
-        except Exception as template_error:
-            logger.error(f"Template rendering error: {str(template_error)}")
-            raise
-        
-        # Email gönderme
-        try:
+            # Basit bir email gönder
             send_mail(
                 subject='Inkteo - Password Changed Successfully',
-                message='Your password has been changed successfully.',
+                message='''
+                Your password has been changed successfully.
+                
+                If you did not make this change, please contact us immediately.
+                
+                Best regards,
+                Inkteo Team
+                ''',
                 from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                html_message=html_message,
+                recipient_list=[instance.email],
                 fail_silently=False,
             )
-            logger.info(f"Password change confirmation email sent to {user.email}")
+            print(f"Password change email sent to {instance.email}")
+            logger.info(f"Password change email sent to {instance.email}")
             
-        except Exception as email_error:
-            logger.error(f"Email sending error: {str(email_error)}")
-            logger.error(f"Email settings: FROM={settings.DEFAULT_FROM_EMAIL}, TO={user.email}")
-            raise
-            
-    except Exception as e:
-        logger.error(f"General error in password change notification: {str(e)}")
-        logger.exception("Full traceback:")
+        except Exception as e:
+            print(f"Error sending password change email: {str(e)}")
+            logger.error(f"Error sending password change email: {str(e)}")

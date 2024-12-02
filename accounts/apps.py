@@ -6,8 +6,9 @@ class AccountsConfig(AppConfig):
     name = 'accounts'
 
     def ready(self):
+        print("Loading accounts signals...")
         try:
-            import accounts.signals
-            print("Signals imported successfully")  # Debug için
+            from . import signals
+            print("Accounts signals loaded successfully")
         except Exception as e:
-            print(f"Error importing signals: {str(e)}")  # Debug için
+            print(f"Error loading accounts signals: {str(e)}")
