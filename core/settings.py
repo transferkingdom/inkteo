@@ -245,27 +245,34 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': '/var/log/django.log',  # Easypanel'de erişilebilir bir yol
-            'formatter': 'verbose',
-        },
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
         },
         'accounts': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',  # Daha detaylı logging
+            'handlers': ['console'],
+            'level': 'DEBUG',
             'propagate': True,
         },
         'allauth': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': True,
         },
     },
 }
+
+# Production ortamında ek log handler'ı ekle
+if not DEBUG:
+    LOGGING['handlers']['file'] = {
+        'class': 'logging.FileHandler',
+        'filename': '/var/log/django.log',
+        'formatter': 'verbose',
+    }
+    # Production'da file handler'ı ekle
+    LOGGING['loggers']['django']['handlers'].append('file')
+    LOGGING['loggers']['accounts']['handlers'].append('file')
+    LOGGING['loggers']['allauth']['handlers'].append('file')
