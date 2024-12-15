@@ -276,3 +276,7 @@ if not DEBUG:
     LOGGING['loggers']['django']['handlers'].append('file')
     LOGGING['loggers']['accounts']['handlers'].append('file')
     LOGGING['loggers']['allauth']['handlers'].append('file')
+
+# Allauth settings ekleyin/güncelleyin
+ACCOUNT_EMAIL_VERIFICATION_REQUIRED_ON_PASSWORD_CHANGE = False
+ACCOUNT_PASSWORD_RESET_VERIFY_EMAIL = False

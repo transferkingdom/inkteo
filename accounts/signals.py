@@ -1,23 +1,19 @@
 from django.dispatch import receiver
-from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
-from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
 from django.urls import reverse
 from django.conf import settings
-from allauth.account.signals import password_changed
+from allauth.account.signals import password_set, password_changed, password_reset
 import logging
 
 logger = logging.getLogger(__name__)
 
-@receiver(password_changed)
-def notify_password_change(sender, request, user, **kwargs):
+def send_password_change_email(user):
+    """Email gönderme fonksiyonu"""
     try:
-        # Login URL oluştur
         current_site = Site.objects.get_current()
         login_url = f"https://{current_site.domain}{reverse('account_login')}"
         
-        # HTML email içeriği
         html_message = f"""
         <!DOCTYPE html>
         <html>
@@ -50,7 +46,6 @@ def notify_password_change(sender, request, user, **kwargs):
         </html>
         """
         
-        # Email gönder
         send_mail(
             subject='Inkteo - Password Changed Successfully',
             message='Your password has been changed successfully.',
@@ -63,3 +58,15 @@ def notify_password_change(sender, request, user, **kwargs):
         
     except Exception as e:
         logger.error(f"Error sending password change email: {str(e)}")
+
+@receiver(password_changed)
+def on_password_changed(sender, request, user, **kwargs):
+    send_password_change_email(user)
+
+@receiver(password_set)
+def on_password_set(sender, request, user, **kwargs):
+    send_password_change_email(user)
+
+@receiver(password_reset)
+def on_password_reset(sender, request, user, **kwargs):
+    send_password_change_email(user)
