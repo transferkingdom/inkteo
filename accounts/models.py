@@ -18,3 +18,17 @@ class CustomUser(AbstractUser):
     
     def __str__(self):
         return self.email
+
+class Company(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    tax_id = models.CharField(max_length=50, blank=True)
+    address = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "Companies"
+
+    def __str__(self):
+        return self.name
