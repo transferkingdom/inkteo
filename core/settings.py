@@ -11,11 +11,16 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv('SECRET_KEY', 'TKInkteo3506')
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+# Base URL Settings
+BASE_URL = os.getenv('BASE_URL', 'https://inkteo-inkteo.72xy9m.easypanel.host')
+if DEBUG:
+    BASE_URL = 'http://localhost:8000'
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,panel.inkteo.com,194.113.64.207').split(',')
 
@@ -224,11 +229,23 @@ CSRF_TRUSTED_ORIGINS = [
     'http://inkteo-inkteo.72xy9m.easypanel.host'
 ]
 
+# Development ortamında local URL'leri ekle
 if DEBUG:
     CSRF_TRUSTED_ORIGINS.extend([
         'http://localhost:8000',
         'http://127.0.0.1:8000'
     ])
+
+# CSRF Ayarları
+CSRF_USE_SESSIONS = True
+CSRF_COOKIE_SECURE = not DEBUG  # Development'ta False, Production'da True
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Session Ayarları
+SESSION_COOKIE_SECURE = not DEBUG  # Development'ta False, Production'da True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 # Logging configuration
 LOGGING = {

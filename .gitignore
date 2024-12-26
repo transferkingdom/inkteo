@@ -1,3 +1,9 @@
+# Mac OS
+.DS_Store
+
+# Temporary files
+temp_folder/
+
 # Python
 __pycache__/
 *.py[cod]
