@@ -8,4 +8,5 @@ urlpatterns = [
     path('settings/', views.settings, name='settings'),
     path('update-profile/', views.update_profile, name='update_profile'),
     path('update-company/', views.update_company, name='update_company'),
+    path('change-password/', views.change_password, name='change_password'),
 ]

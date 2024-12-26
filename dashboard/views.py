@@ -15,6 +15,8 @@ from django.utils import timezone
 from django.conf import settings
 from allauth.account.utils import send_email_confirmation
 from django.db.models import Q
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -26,11 +28,17 @@ def home(request):
 @ensure_csrf_cookie
 @login_required
 def settings(request):
-    context = {
-        'user': request.user,
-        'company': getattr(request.user, 'company', None)
-    }
-    return render(request, 'dashboard/settings.html', context)
+    # Clear any existing messages
+    from django.contrib.messages import get_messages
+    storage = get_messages(request)
+    for message in storage:
+        pass  # This will clear all messages
+    
+    # Clear session messages
+    if 'messages' in request.session:
+        del request.session['messages']
+    
+    return render(request, 'dashboard/settings.html')
 
 @ensure_csrf_cookie
 @login_required
@@ -193,3 +201,64 @@ def update_company(request):
         return redirect('dashboard:settings')
     
     return redirect('dashboard:settings')
+
+@ensure_csrf_cookie
+@login_required
+def change_password(request):
+    if request.method == 'POST':
+        try:
+            current_password = request.POST.get('current_password')
+            new_password = request.POST.get('new_password')
+            confirm_password = request.POST.get('confirm_password')
+            
+            user = request.user
+            
+            print(f"DEBUG: Starting password change for user: {user.email}")
+            
+            # Check current password
+            if not user.check_password(current_password):
+                return JsonResponse({
+                    'success': False,
+                    'current_password_error': 'Current password is incorrect'
+                })
+            
+            # Check if passwords match
+            if new_password != confirm_password:
+                return JsonResponse({
+                    'success': False,
+                    'new_password_error': 'Passwords do not match'
+                })
+            
+            # Validate password
+            try:
+                validate_password(new_password, user)
+            except ValidationError as e:
+                return JsonResponse({
+                    'success': False,
+                    'new_password_error': e.messages[0]
+                })
+            
+            # Change password
+            user.set_password(new_password)
+            user.save()
+            
+            print("DEBUG: Password changed successfully")
+            
+            # Logout user
+            logout(request)
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Password changed successfully. You will be logged out in 10 seconds. '
+                         'Please login with your new password.',
+                'redirect': '/accounts/login/'
+            })
+            
+        except Exception as e:
+            print(f"DEBUG: Error in password change: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'message': f'An error occurred: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': 'Invalid request method'})
