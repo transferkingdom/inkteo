@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from accounts.forms import UserProfileForm, CompanyForm
@@ -17,13 +17,24 @@ from allauth.account.utils import send_email_confirmation
 from django.db.models import Q
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from .models import BatchOrder, OrderDetail, OrderItem
+from .utils import generate_order_id, extract_order_data
+from django.core.serializers.json import DjangoJSONEncoder
+from datetime import date, datetime
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
 @login_required
 def home(request):
-    return render(request, 'dashboard/home.html')
+    # Total orders sayısını al
+    total_orders = OrderDetail.objects.count()
+    
+    context = {
+        'total_orders': total_orders,
+        'active_tab': 'home'
+    }
+    return render(request, 'dashboard/home.html', context)
 
 @ensure_csrf_cookie
 @login_required
@@ -262,3 +273,125 @@ def change_password(request):
             })
     
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
+
+@login_required
+def order_list(request):
+    """Orders ana sayfası"""
+    batches = BatchOrder.objects.all()
+    context = {
+        'batches': batches,
+        'active_tab': 'orders'
+    }
+    return render(request, 'dashboard/orders/list.html', context)
+
+@login_required
+def upload_orders(request):
+    """PDF yükleme view'ı"""
+    print("Upload orders view called")
+    print("Request method:", request.method)
+    print("Files:", request.FILES)
+    print("POST data:", request.POST)
+
+    if request.method == 'POST':
+        if 'pdf_file' not in request.FILES:
+            print("No PDF file in request")
+            return JsonResponse({
+                'status': 'error',
+                'message': 'No PDF file uploaded'
+            }, status=400)
+
+        try:
+            pdf_file = request.FILES['pdf_file']
+            print(f"Processing file: {pdf_file.name}, size: {pdf_file.size}")
+            
+            if not pdf_file.name.endswith('.pdf'):
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'File must be a PDF'
+                }, status=400)
+
+            # Yeni batch order oluştur
+            batch = BatchOrder.objects.create(
+                order_id=generate_order_id(),
+                pdf_file=pdf_file,
+                status='processing'
+            )
+            print(f"Created batch order: {batch.order_id}")
+
+            try:
+                # PDF'den verileri çıkar
+                orders_data = extract_order_data(pdf_file)
+                print(f"Extracted {len(orders_data)} orders from PDF")
+                
+                # Ham veriyi kaydet - datetime objelerini string'e çevir
+                serializable_data = []
+                for order in orders_data:
+                    order_copy = order.copy()
+                    if isinstance(order_copy['order_date'], (date, datetime)):
+                        order_copy['order_date'] = order_copy['order_date'].isoformat()
+                    serializable_data.append(order_copy)
+                
+                batch.raw_data = json.dumps(serializable_data, cls=DjangoJSONEncoder)
+                batch.total_orders = len(orders_data)
+                
+                # Siparişleri işle
+                total_items = 0
+                for order_data in orders_data:
+                    order = OrderDetail.objects.create(
+                        batch=batch,
+                        etsy_order_number=order_data['order_number'],
+                        customer_name=order_data['customer_name'],
+                        shipping_address=order_data['shipping_address'],
+                        order_date=order_data['order_date'],
+                        tracking_number=order_data['tracking_number']
+                    )
+                    
+                    # Ürünleri işle
+                    for item in order_data['items']:
+                        OrderItem.objects.create(
+                            order=order,
+                            product_name=item['name'],
+                            sku=item['sku'],
+                            quantity=item['quantity'],
+                            size=item['size'],
+                            color=item['color'],
+                            image_url=item.get('image_url')
+                        )
+                        total_items += item['quantity']
+
+                batch.total_items = total_items
+                batch.status = 'completed'
+                batch.save()
+
+                return JsonResponse({'status': 'success'})
+
+            except Exception as e:
+                print(f"Error processing PDF: {str(e)}")
+                batch.status = 'error'
+                batch.save()
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Error processing PDF: {str(e)}'
+                })
+
+        except Exception as e:
+            print(f"Error uploading file: {str(e)}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Error uploading file: {str(e)}'
+            })
+
+    return JsonResponse({
+        'status': 'error',
+        'message': 'Invalid request method'
+    }, status=400)
+
+@login_required
+def order_detail(request, order_id):
+    """Batch detay sayfası"""
+    batch = get_object_or_404(BatchOrder, order_id=order_id)
+    context = {
+        'batch': batch,
+        'active_tab': 'orders'
+    }
+    return render(request, 'dashboard/orders/detail.html', context)

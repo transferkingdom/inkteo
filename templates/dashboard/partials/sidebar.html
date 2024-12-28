@@ -32,13 +32,14 @@
             <span class="text-sm font-medium">POD Products</span>
         </a>
 
-        <a href="#" 
-           class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200">
-            <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <a href="{% url 'dashboard:order_list' %}" 
+           class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 
+           {% if active_tab == 'orders' %}bg-gray-100{% endif %}">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                      d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
             </svg>
-            <span class="text-sm font-medium">Orders</span>
+            Orders
         </a>
 
         <a href="{% url 'dashboard:settings' %}" 

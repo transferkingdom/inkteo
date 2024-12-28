@@ -51,11 +51,12 @@
                 <span class="text-sm font-medium">POD Products</span>
             </a>
 
-            <a href="#" 
-               class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200">
+            <a href="{% url 'dashboard:order_list' %}" 
+               class="flex items-center px-6 py-3 text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200
+                      {% if active_tab == 'orders' %}bg-gray-100 border-l-4 border-[#9BD5E8] text-gray-700{% endif %}">
                 <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                 </svg>
                 <span class="text-sm font-medium">Orders</span>
             </a>
@@ -145,10 +146,11 @@
                     <div class="flex items-center justify-between">
                         <h3 class="text-gray-500 text-sm font-medium">Total Orders</h3>
                         <svg class="w-5 h-5 text-[#9BD5E8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
                         </svg>
                     </div>
-                    <p class="mt-2 text-3xl font-semibold text-gray-900">0</p>
+                    <p class="mt-2 text-3xl font-semibold text-gray-900">{{ total_orders|default:"0" }}</p>
                     <p class="mt-1 text-sm text-gray-600">From all time</p>
                 </div>
 
@@ -181,3 +183,5 @@
     </div>
 </div>
 {% endblock %}
+
+{% block extra_js %}{% endblock %}

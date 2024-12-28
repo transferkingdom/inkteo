@@ -1,0 +1,230 @@
+{% extends "dashboard/home.html" %}
+{% load static %}
+
+{% block dashboard_content %}
+{% csrf_token %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">Orders</h1>
+        <div class="relative">
+            <input type="file" id="pdf-upload" class="hidden" accept=".pdf">
+            <button onclick="document.getElementById('pdf-upload').click()" 
+                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Add Orders From PDF
+            </button>
+            <!-- Progress Bar Container -->
+            <div id="upload-progress" class="hidden mt-2">
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" 
+                         class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                         style="width: 0%">
+                    </div>
+                </div>
+                <p id="status-message" class="text-sm mt-1 text-gray-600"></p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white shadow-md rounded-lg overflow-hidden">
+        <table class="min-w-full">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Order ID
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Upload Date
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Orders
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Items
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                    </th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for batch in batches %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <a href="{% url 'dashboard:order_detail' batch.order_id %}" 
+                           class="text-blue-600 hover:text-blue-900">
+                            {{ batch.order_id }}
+                        </a>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ batch.upload_date|date:"Y-m-d H:i" }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ batch.total_orders }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        {{ batch.total_items }}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                            {% if batch.status == 'completed' %}bg-green-100 text-green-800
+                            {% elif batch.status == 'error' %}bg-red-100 text-red-800
+                            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                            {{ batch.status|title }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+console.log('Orders page JavaScript loaded!');
+// Debug flag
+const DEBUG = true;
+
+function debugLog(...args) {
+    if (DEBUG) {
+        console.log(...args);
+    }
+}
+
+function showProgress(show = true) {
+    debugLog('showProgress called with:', show);
+    const progressDiv = document.getElementById('upload-progress');
+    if (!progressDiv) {
+        console.error('Progress div not found!');
+        return;
+    }
+    progressDiv.classList.toggle('hidden', !show);
+}
+
+function updateProgress(percent, message, type = 'info') {
+    debugLog('updateProgress called:', { percent, message, type });
+    const progressBar = document.getElementById('progress-bar');
+    const statusMessage = document.getElementById('status-message');
+    
+    if (!progressBar || !statusMessage) {
+        console.error('Progress elements not found!');
+        return;
+    }
+    
+    progressBar.style.width = `${percent}%`;
+    statusMessage.textContent = message;
+    
+    statusMessage.className = 'text-sm mt-1 ' + 
+        (type === 'error' ? 'text-red-600' : 
+         type === 'success' ? 'text-green-600' : 
+         'text-gray-600');
+}
+
+// File upload handler
+document.getElementById('pdf-upload').addEventListener('change', async function(e) {
+    debugLog('File input change event triggered');
+    
+    const file = e.target.files[0];
+    if (!file) {
+        debugLog('No file selected');
+        return;
+    }
+
+    debugLog('File selected:', {
+        name: file.name,
+        size: file.size,
+        type: file.type
+    });
+
+    try {
+        // Show progress bar
+        showProgress(true);
+        updateProgress(0, 'Starting upload...');
+
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('pdf_file', file);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+
+        debugLog('Sending request to server...');
+        
+        // Send request
+        const response = await fetch('{% url "dashboard:upload_orders" %}', {
+            method: 'POST',
+            body: formData
+        });
+
+        debugLog('Server response received:', {
+            status: response.status,
+            statusText: response.statusText
+        });
+
+        updateProgress(50, 'Processing PDF...');
+
+        // Check response status
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Get response text
+        const responseText = await response.text();
+        debugLog('Raw response:', responseText);
+
+        // Parse JSON
+        let data;
+        try {
+            data = JSON.parse(responseText);
+            debugLog('Parsed response:', data);
+        } catch (e) {
+            throw new Error('Invalid JSON response: ' + responseText);
+        }
+
+        // Handle response
+        if (data.status === 'success') {
+            updateProgress(100, 'Upload completed successfully!', 'success');
+            debugLog('Upload successful, reloading page in 1 second...');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            throw new Error(data.message || 'Unknown error occurred');
+        }
+
+    } catch (error) {
+        debugLog('Error occurred:', error);
+        console.error('Error details:', error);
+        updateProgress(100, `Error: ${error.message}`, 'error');
+    } finally {
+        // Reset file input
+        e.target.value = '';
+        
+        // Hide progress after 3 seconds if there was an error
+        const statusMessage = document.getElementById('status-message');
+        if (statusMessage && statusMessage.classList.contains('text-red-600')) {
+            setTimeout(() => {
+                showProgress(false);
+            }, 3000);
+        }
+    }
+});
+
+// Initial setup check
+document.addEventListener('DOMContentLoaded', function() {
+    debugLog('Page loaded, checking elements...');
+    const requiredElements = [
+        'pdf-upload',
+        'upload-progress',
+        'progress-bar',
+        'status-message'
+    ];
+    
+    requiredElements.forEach(id => {
+        const element = document.getElementById(id);
+        if (!element) {
+            console.error(`Required element #${id} not found!`);
+        } else {
+            debugLog(`Found element #${id}`);
+        }
+    });
+});
+</script>
+{% endblock %} 

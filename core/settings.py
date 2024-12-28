@@ -144,7 +144,10 @@ STATICFILES_FINDERS = [
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+if DEBUG:
+    MEDIA_ROOT = BASE_DIR / 'media'
+else:
+    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
 
 # Security Settings
 if not DEBUG:
@@ -253,7 +256,7 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
+            'format': '[{levelname}] {asctime} {module} {message}',
             'style': '{',
         },
     },
@@ -262,23 +265,23 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
+        'file': {
+            'class': 'logging.FileHandler',
+            'filename': 'debug.log',
+            'formatter': 'verbose',
+        },
     },
     'loggers': {
         'django': {
-            'handlers': ['console'],
+            'handlers': ['console', 'file'],
             'level': 'INFO',
             'propagate': True,
         },
-        'accounts': {
-            'handlers': ['console'],
+        'dashboard': {  # dashboard app için özel logger
+            'handlers': ['console', 'file'],
             'level': 'DEBUG',
             'propagate': True,
-        },
-        'allauth': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
+        }
     },
 }
 
@@ -297,3 +300,8 @@ if not DEBUG:
 # Allauth settings ekleyin/güncelleyin
 ACCOUNT_EMAIL_VERIFICATION_REQUIRED_ON_PASSWORD_CHANGE = False
 ACCOUNT_PASSWORD_RESET_VERIFY_EMAIL = False
+
+# Orders specific settings
+ORDERS_PDF_DIR = 'orders/pdfs/%Y/%m/%d'
+ORDERS_IMAGES_DIR = 'orders/images/%Y/%m/%d'
+ORDERS_RAW_DATA_DIR = 'orders/raw_data/%Y/%m/%d'
