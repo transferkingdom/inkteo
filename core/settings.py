@@ -265,37 +265,33 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
-        'file': {
-            'class': 'logging.FileHandler',
-            'filename': 'debug.log',
-            'formatter': 'verbose',
-        },
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console'],
             'level': 'INFO',
             'propagate': True,
         },
-        'dashboard': {  # dashboard app için özel logger
-            'handlers': ['console', 'file'],
+        'dashboard': {
+            'handlers': ['console'],
             'level': 'DEBUG',
             'propagate': True,
         }
     },
 }
 
-# Production ortamında ek log handler'ı ekle
+# Production ortamında ek log ayarları
 if not DEBUG:
     LOGGING['handlers']['file'] = {
         'class': 'logging.FileHandler',
         'filename': '/var/log/django.log',
         'formatter': 'verbose',
     }
-    # Production'da file handler'ı ekle
-    LOGGING['loggers']['django']['handlers'].append('file')
-    LOGGING['loggers']['accounts']['handlers'].append('file')
-    LOGGING['loggers']['allauth']['handlers'].append('file')
+    
+    # Her logger'a file handler ekle
+    for logger in LOGGING['loggers'].values():
+        if 'file' not in logger['handlers']:
+            logger['handlers'].append('file')
 
 # Allauth settings ekleyin/güncelleyin
 ACCOUNT_EMAIL_VERIFICATION_REQUIRED_ON_PASSWORD_CHANGE = False
