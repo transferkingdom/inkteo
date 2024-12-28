@@ -18,11 +18,11 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'TKInkteo3506')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Base URL Settings
-BASE_URL = os.getenv('BASE_URL', 'https://inkteo-inkteo.72xy9m.easypanel.host')
+BASE_URL = os.getenv('BASE_URL', 'https://inkteo-inkteo.7r1maa.easypanel.host')
 if DEBUG:
     BASE_URL = 'http://localhost:8000'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,panel.inkteo.com,194.113.64.207').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,93.127.217.110,inkteo-inkteo.7r1maa.easypanel.host').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -87,7 +87,7 @@ if DEBUG:
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': 'inkteo_db',
             'USER': 'postgres',
-            'PASSWORD': '',
+            'PASSWORD': '982286',
             'HOST': 'localhost',
             'PORT': '5432',
         }
