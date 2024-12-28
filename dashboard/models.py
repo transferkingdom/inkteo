@@ -1,6 +1,23 @@
 from django.db import models
 from django.utils import timezone
 
+class SearchPattern(models.Model):
+    """Model for search patterns"""
+    TYPE_CHOICES = [
+        ('size', 'Size Pattern'),
+        ('color', 'Color Pattern')
+    ]
+    pattern_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    pattern = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.get_pattern_type_display()}: {self.pattern}"
+
+    class Meta:
+        ordering = ['pattern_type', 'pattern']
+
 class BatchOrder(models.Model):
     """Batch order model for bulk order uploads"""
     order_id = models.CharField(max_length=50, unique=True)  # e.g. 1000-20240321153000

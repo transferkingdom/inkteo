@@ -96,6 +96,12 @@ def save_product_image(image_url, order_id, sku):
         print(f"Image save error: {str(e)}")
         return ''
 
+def get_search_patterns(pattern_type):
+    """Get active search patterns from database"""
+    from .models import SearchPattern
+    patterns = SearchPattern.objects.filter(pattern_type=pattern_type, is_active=True)
+    return [pattern.pattern for pattern in patterns]
+
 def extract_items(order_text, order_id):
     """Extract product information"""
     try:
@@ -104,6 +110,16 @@ def extract_items(order_text, order_id):
         lines = order_text.split('\n')
         current_item = None
         product_lines = []
+        
+        # Get search patterns
+        size_patterns = get_search_patterns('size')
+        color_patterns = get_search_patterns('color')
+        
+        # Add default patterns if none exist
+        if not size_patterns:
+            size_patterns = ['Size', 'Style', 'Size / Style']
+        if not color_patterns:
+            color_patterns = ['Color']
         
         for i, line in enumerate(lines):
             if line.startswith('SKU:'):
@@ -152,21 +168,29 @@ def extract_items(order_text, order_id):
                         current_item['errors'].append("Quantity is not a valid number")
                 continue
             
-            if 'Size' in line or 'Style' in line:
-                size_match = re.search(r'Size.*?:\s*(.*?)(?=\n|$)', line, re.IGNORECASE)
-                if not size_match or not size_match.group(1).strip():
-                    current_item['errors'].append("Size/Style not found")
-                else:
-                    current_item['size'] = size_match.group(1).strip()
-                continue
+            # Check for size using patterns
+            size_found = False
+            for pattern in size_patterns:
+                if pattern in line:
+                    size_match = re.search(f"{pattern}.*?:\s*(.*?)(?=\n|$)", line, re.IGNORECASE)
+                    if size_match and size_match.group(1).strip():
+                        current_item['size'] = size_match.group(1).strip()
+                        size_found = True
+                        break
+            if not size_found and any(pattern in line for pattern in size_patterns):
+                current_item['errors'].append("Size/Style not found")
             
-            if 'Color' in line:
-                color_match = re.search(r'Color.*?:\s*(.*?)(?=\n|$)', line, re.IGNORECASE)
-                if not color_match or not color_match.group(1).strip():
-                    current_item['errors'].append("Color not found")
-                else:
-                    current_item['color'] = color_match.group(1).strip()
-                continue
+            # Check for color using patterns
+            color_found = False
+            for pattern in color_patterns:
+                if pattern in line:
+                    color_match = re.search(f"{pattern}.*?:\s*(.*?)(?=\n|$)", line, re.IGNORECASE)
+                    if color_match and color_match.group(1).strip():
+                        current_item['color'] = color_match.group(1).strip()
+                        color_found = True
+                        break
+            if not color_found and any(pattern in line for pattern in color_patterns):
+                current_item['errors'].append("Color not found")
 
             if 'Personalization:' in line or 'Personalization' in line:
                 # Önce "Personalization:" formatını dene

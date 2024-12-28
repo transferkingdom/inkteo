@@ -1,5 +1,12 @@
 from django.contrib import admin
-from .models import BatchOrder, OrderDetail, OrderItem
+from .models import BatchOrder, OrderDetail, OrderItem, SearchPattern
+
+@admin.register(SearchPattern)
+class SearchPatternAdmin(admin.ModelAdmin):
+    list_display = ('pattern_type', 'pattern', 'is_active', 'created_at')
+    list_filter = ('pattern_type', 'is_active')
+    search_fields = ('pattern',)
+    list_editable = ('is_active',)
 
 @admin.register(BatchOrder)
 class BatchOrderAdmin(admin.ModelAdmin):
