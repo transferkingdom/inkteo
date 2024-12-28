@@ -15,14 +15,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv('SECRET_KEY', 'TKInkteo3506')
 
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 # Base URL Settings
 BASE_URL = os.getenv('BASE_URL', 'https://inkteo-inkteo.7r1maa.easypanel.host')
 if DEBUG:
     BASE_URL = 'http://localhost:8000'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,93.127.217.110,inkteo-inkteo.7r1maa.easypanel.host').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,93.127.217.110,inkteo-inkteo.7r1maa.easypanel.host,127.0.0.1:8000').split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -251,47 +251,72 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
 # Logging configuration
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '[{levelname}] {asctime} {module} {message}',
-            'style': '{',
+if DEBUG:
+    # Development ortamı için basit logging
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+            },
         },
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
-        },
-    },
-    'loggers': {
-        'django': {
+        'root': {
             'handlers': ['console'],
             'level': 'INFO',
-            'propagate': True,
         },
-        'dashboard': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        }
-    },
-}
-
-# Production ortamında ek log ayarları
-if not DEBUG:
-    LOGGING['handlers']['file'] = {
-        'class': 'logging.FileHandler',
-        'filename': '/var/log/django.log',
-        'formatter': 'verbose',
+        'loggers': {
+            'django': {
+                'handlers': ['console'],
+                'level': 'INFO',
+                'propagate': False,
+            },
+            'dashboard': {
+                'handlers': ['console'],
+                'level': 'DEBUG',
+                'propagate': False,
+            },
+        },
     }
-    
-    # Her logger'a file handler ekle
-    for logger in LOGGING['loggers'].values():
-        if 'file' not in logger['handlers']:
-            logger['handlers'].append('file')
+else:
+    # Production ortamı için logging
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '[{levelname}] {asctime} {module} {message}',
+                'style': '{',
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
+            },
+            'file': {
+                'class': 'logging.FileHandler',
+                'filename': '/var/log/django.log',
+                'formatter': 'verbose',
+            },
+        },
+        'root': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['console', 'file'],
+                'level': 'INFO',
+                'propagate': False,
+            },
+            'dashboard': {
+                'handlers': ['console', 'file'],
+                'level': 'DEBUG',
+                'propagate': False,
+            },
+        },
+    }
 
 # Allauth settings ekleyin/güncelleyin
 ACCOUNT_EMAIL_VERIFICATION_REQUIRED_ON_PASSWORD_CHANGE = False

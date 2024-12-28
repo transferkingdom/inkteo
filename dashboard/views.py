@@ -286,7 +286,7 @@ def order_list(request):
 
 @login_required
 def upload_orders(request):
-    """PDF yükleme view'ı"""
+    """PDF upload view"""
     print("Upload orders view called")
     print("Request method:", request.method)
     print("Files:", request.FILES)
@@ -310,7 +310,7 @@ def upload_orders(request):
                     'message': 'File must be a PDF'
                 }, status=400)
 
-            # Yeni batch order oluştur
+            # Create new batch order
             batch = BatchOrder.objects.create(
                 order_id=generate_order_id(),
                 pdf_file=pdf_file,
@@ -319,45 +319,64 @@ def upload_orders(request):
             print(f"Created batch order: {batch.order_id}")
 
             try:
-                # PDF'den verileri çıkar
+                # Extract data from PDF
                 orders_data = extract_order_data(pdf_file)
                 print(f"Extracted {len(orders_data)} orders from PDF")
                 
-                # Ham veriyi kaydet - datetime objelerini string'e çevir
+                # Save raw data - convert datetime objects to string
                 serializable_data = []
                 for order in orders_data:
                     order_copy = order.copy()
                     if isinstance(order_copy['order_date'], (date, datetime)):
                         order_copy['order_date'] = order_copy['order_date'].isoformat()
                     serializable_data.append(order_copy)
-                
+
                 batch.raw_data = json.dumps(serializable_data, cls=DjangoJSONEncoder)
                 batch.total_orders = len(orders_data)
                 
-                # Siparişleri işle
+                # Process orders
                 total_items = 0
                 for order_data in orders_data:
-                    order = OrderDetail.objects.create(
-                        batch=batch,
-                        etsy_order_number=order_data['order_number'],
-                        customer_name=order_data['customer_name'],
-                        shipping_address=order_data['shipping_address'],
-                        order_date=order_data['order_date'],
-                        tracking_number=order_data['tracking_number']
-                    )
+                    # Create order with only available fields
+                    order_fields = {
+                        'batch': batch,
+                        'etsy_order_number': order_data['order_number'],
+                        'customer_name': order_data['customer_name'],
+                        'shipping_address': order_data['shipping_address'],
+                        'order_date': order_data['order_date']
+                    }
                     
-                    # Ürünleri işle
+                    if 'tracking_number' in order_data:
+                        order_fields['tracking_number'] = order_data['tracking_number']
+                        
+                    order = OrderDetail.objects.create(**order_fields)
+                    
+                    # Process items
                     for item in order_data['items']:
-                        OrderItem.objects.create(
-                            order=order,
-                            product_name=item['name'],
-                            sku=item['sku'],
-                            quantity=item['quantity'],
-                            size=item['size'],
-                            color=item['color'],
-                            image_url=item.get('image_url')
-                        )
-                        total_items += item['quantity']
+                        # Create item with only available fields
+                        item_fields = {
+                            'order': order,
+                            'sku': item['sku']  # SKU is required
+                        }
+                        
+                        # Add other fields only if they exist
+                        if 'name' in item:
+                            item_fields['product_name'] = item['name']
+                        if 'quantity' in item:
+                            item_fields['quantity'] = item['quantity']
+                            total_items += item['quantity']
+                        if 'size' in item:
+                            item_fields['size'] = item['size']
+                        if 'color' in item:
+                            item_fields['color'] = item['color']
+                        if 'personalization' in item:
+                            item_fields['personalization'] = item['personalization']
+                        if 'image_url' in item:
+                            item_fields['image_url'] = item['image_url']
+                        if 'image' in item and item['image']:
+                            item_fields['image'] = item['image']
+                            
+                        OrderItem.objects.create(**item_fields)
 
                 batch.total_items = total_items
                 batch.status = 'completed'

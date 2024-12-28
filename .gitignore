@@ -19,3 +19,7 @@ db.sqlite3
 .idea/
 .vscode/
 *.swp
+
+# Logs
+/logs/
+*.log

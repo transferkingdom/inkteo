@@ -2,8 +2,8 @@ from django.db import models
 from django.utils import timezone
 
 class BatchOrder(models.Model):
-    """Toplu sipariş yüklemesi için ana model"""
-    order_id = models.CharField(max_length=20, unique=True)  # örn: 1000-20240321153000
+    """Batch order model for bulk order uploads"""
+    order_id = models.CharField(max_length=50, unique=True)  # e.g. 1000-20240321153000
     upload_date = models.DateTimeField(auto_now_add=True)
     pdf_file = models.FileField(upload_to='orders/pdfs/%Y/%m/%d/')
     total_orders = models.IntegerField(default=0)
@@ -40,18 +40,22 @@ class OrderDetail(models.Model):
         return f"Order {self.etsy_order_number}"
 
     class Meta:
-        ordering = ['-order_date']
+        ordering = ['id']  # PDF'deki sıraya göre sıralama
 
 class OrderItem(models.Model):
-    """Siparişlerdeki her bir ürün için model"""
+    """Order items model"""
     order = models.ForeignKey(OrderDetail, on_delete=models.CASCADE, related_name='items')
     product_name = models.CharField(max_length=255)
     sku = models.CharField(max_length=50)
     quantity = models.IntegerField(default=1)
-    size = models.CharField(max_length=20)
+    size = models.CharField(max_length=100)
     color = models.CharField(max_length=50)
+    personalization = models.CharField(max_length=255, blank=True, null=True)
     image = models.ImageField(upload_to='orders/images/%Y/%m/%d/', null=True, blank=True)
-    image_url = models.URLField(null=True, blank=True)  # Orijinal görsel URL'i
+    image_url = models.URLField(null=True, blank=True)  # Original image URL
 
     def __str__(self):
         return f"{self.product_name} - {self.sku}"
+
+    class Meta:
+        ordering = ['id']  # PDF'deki sıraya göre sıralama

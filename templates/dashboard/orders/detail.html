@@ -35,45 +35,125 @@
             </div>
         </div>
 
-        <div class="mt-8">
-            <h2 class="text-xl font-semibold mb-4">Orders</h2>
-            {% for order in batch.orders.all %}
-            <div class="border rounded-lg p-4 mb-4">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 class="font-medium">Order #{{ order.etsy_order_number }}</h3>
-                        <p class="text-gray-600">{{ order.customer_name }}</p>
-                        <p class="text-sm text-gray-500 mt-1">{{ order.shipping_address }}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-gray-600">{{ order.order_date|date:"Y-m-d" }}</p>
-                        <p class="text-sm">Tracking: {{ order.tracking_number }}</p>
-                    </div>
+        {% for order in batch.orders.all %}
+        <div class="mb-8">
+            <div class="flex justify-between items-start mb-4 bg-gray-50 p-4 rounded-lg">
+                <div>
+                    <h3 class="font-medium text-lg">Order #{{ order.etsy_order_number }}</h3>
+                    <p class="text-gray-600">{{ order.customer_name }}</p>
+                    <p class="text-sm text-gray-500 mt-1 whitespace-pre-line">{{ order.shipping_address }}</p>
                 </div>
-
-                <div class="mt-4">
-                    <h4 class="font-medium mb-2">Items</h4>
-                    <div class="space-y-4">
-                        {% for item in order.items.all %}
-                        <div class="flex items-start border-t pt-4">
-                            {% if item.image %}
-                            <img src="{{ item.image.url }}" alt="{{ item.product_name }}" 
-                                 class="w-20 h-20 object-cover rounded">
-                            {% endif %}
-                            <div class="ml-4">
-                                <p class="font-medium">{{ item.product_name }}</p>
-                                <p class="text-sm text-gray-600">SKU: {{ item.sku }}</p>
-                                <p class="text-sm text-gray-600">
-                                    {{ item.size }} - {{ item.color }} (Qty: {{ item.quantity }})
-                                </p>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
+                <div class="text-right">
+                    <p class="text-gray-600">{{ order.order_date|date:"Y-m-d" }}</p>
+                    <p class="text-sm">Tracking: {{ order.tracking_number }}</p>
+                    {% if order.gift_message %}
+                    <p class="text-sm mt-2 italic">"{{ order.gift_message }}"</p>
+                    {% endif %}
                 </div>
             </div>
-            {% endfor %}
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Product Image
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Product Name
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                SKU
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Size
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Color
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Quantity
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Personalization
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Status
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for item in order.items.all %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if item.image %}
+                                    <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-20 h-20 object-cover rounded">
+                                {% else %}
+                                    <span class="text-red-500">No Image</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4">
+                                {% if item.name %}
+                                    {{ item.name }}
+                                {% else %}
+                                    <span class="text-red-500">No Product Name</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if item.sku %}
+                                    {{ item.sku }}
+                                {% else %}
+                                    <span class="text-red-500">No SKU</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if item.size %}
+                                    {{ item.size }}
+                                {% else %}
+                                    <span class="text-red-500">No Size</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if item.color %}
+                                    {{ item.color }}
+                                {% else %}
+                                    <span class="text-red-500">No Color</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if item.quantity %}
+                                    {{ item.quantity }}
+                                {% else %}
+                                    <span class="text-red-500">No Quantity</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if item.personalization %}
+                                    {{ item.personalization }}
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if item.errors %}
+                                    <div class="text-red-500">
+                                        {% for error in item.errors %}
+                                            <div>{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        OK
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
+        {% endfor %}
     </div>
 </div>
 {% endblock %} 

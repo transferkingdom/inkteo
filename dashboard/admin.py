@@ -6,7 +6,7 @@ class BatchOrderAdmin(admin.ModelAdmin):
     list_display = ('order_id', 'upload_date', 'total_orders', 'total_items', 'status')
     list_filter = ('status', 'upload_date')
     search_fields = ('order_id',)
-    readonly_fields = ('upload_date',)
+    readonly_fields = ('upload_date', 'raw_data')
 
 @admin.register(OrderDetail)
 class OrderDetailAdmin(admin.ModelAdmin):
@@ -16,6 +16,6 @@ class OrderDetailAdmin(admin.ModelAdmin):
 
 @admin.register(OrderItem)
 class OrderItemAdmin(admin.ModelAdmin):
-    list_display = ('product_name', 'sku', 'quantity', 'size', 'color')
+    list_display = ('product_name', 'sku', 'quantity', 'size', 'color', 'personalization')
     list_filter = ('size', 'color')
-    search_fields = ('product_name', 'sku')
+    search_fields = ('product_name', 'sku', 'personalization')
