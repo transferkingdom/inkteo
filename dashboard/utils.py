@@ -240,7 +240,7 @@ def extract_order_data(pdf_file):
         # Read PDF
         reader = None
         try:
-            reader = PyPDF2.PdfReader(pdf_file)
+            reader = PyPDF2.PdfReader(pdf_file, strict=False)
         except Exception as e:
             print(f"PDF reading error: {str(e)}")
             raise Exception("Could not read PDF file. Please upload a valid PDF file.")
@@ -248,8 +248,9 @@ def extract_order_data(pdf_file):
         if not reader or len(reader.pages) == 0:
             raise Exception("PDF file is empty or unreadable.")
 
-        # First, combine all pages into one text
-        full_text = ""
+        # Process pages in chunks
+        orders = []
+        current_text = ""
         total_pages = len(reader.pages)
         print(f"Processing {total_pages} pages")
 
@@ -265,79 +266,80 @@ def extract_order_data(pdf_file):
                     if not page_text:
                         print(f"No text could be extracted from page {page_num + 1}, skipping")
                         continue
-                    full_text += page_text + "\n"
+                    
+                    current_text += page_text + "\n"
+                    
+                    # If we find an order number or this is the last page, process the accumulated text
+                    if 'Order #' in page_text or page_num == total_pages - 1:
+                        order_texts = re.split(r'(?=Order #\d+)', current_text)
+                        for order_text in order_texts:
+                            if not order_text.strip().startswith('Order #'):
+                                continue
+                            
+                            try:
+                                # Extract basic order information
+                                order_match = re.search(r'Order #(\d+)', order_text)
+                                customer_match = re.search(r'Ship to\n(.*?)\n', order_text)
+                                date_match = re.search(r'Order date\n(.*?)\n', order_text)
+                                tracking_match = re.search(r'Tracking\n(\d+)\nvia USPS', order_text)
+                                
+                                if not all([order_match, customer_match, date_match]):
+                                    print("Missing order information, skipping")
+                                    continue
+                                
+                                order_number = order_match.group(1)
+                                print(f"Processing order: {order_number}")
+
+                                try:
+                                    order_date = datetime.strptime(date_match.group(1).strip(), '%b %d, %Y').date()
+                                except ValueError as e:
+                                    print(f"Date conversion error: {str(e)}")
+                                    continue
+
+                                # Create order data
+                                order_data = {
+                                    'order_number': order_number,
+                                    'customer_name': customer_match.group(1).strip(),
+                                    'shipping_address': extract_address(order_text),
+                                    'order_date': order_date,
+                                    'tracking_number': tracking_match.group(1) if tracking_match else '',
+                                }
+
+                                # Extract products
+                                try:
+                                    items = extract_items(order_text, order_number)
+                                    if not items:
+                                        print(f"No products found for order {order_number}")
+                                        continue
+                                    order_data['items'] = items
+                                except Exception as e:
+                                    print(f"Product extraction error: {str(e)}")
+                                    continue
+                                
+                                # Add gift message (if exists)
+                                try:
+                                    gift_message_match = re.search(r'Gift message\n(.*?)\n', order_text)
+                                    if gift_message_match:
+                                        order_data['gift_message'] = gift_message_match.group(1).strip()
+                                except Exception as e:
+                                    print(f"Gift message extraction error: {str(e)}")
+                                
+                                orders.append(order_data)
+                                print(f"Order {order_number} processed successfully")
+                            
+                            except Exception as e:
+                                print(f"Order processing error: {str(e)}")
+                                continue
+                        
+                        # Clear the accumulated text after processing
+                        current_text = ""
+                    
                 except Exception as e:
                     print(f"Text extraction error for page {page_num + 1}: {str(e)}")
                     continue
 
             except Exception as e:
                 print(f"Page {page_num + 1} processing error: {str(e)}")
-                continue
-
-        if not full_text.strip():
-            raise Exception("No text could be extracted from PDF.")
-
-        # Split combined text into orders
-        orders = []
-        order_texts = re.split(r'(?=Order #\d+)', full_text)
-        
-        for order_text in order_texts:
-            if not order_text.strip().startswith('Order #'):
-                continue
-            
-            try:
-                # Extract basic order information
-                order_match = re.search(r'Order #(\d+)', order_text)
-                customer_match = re.search(r'Ship to\n(.*?)\n', order_text)
-                date_match = re.search(r'Order date\n(.*?)\n', order_text)
-                tracking_match = re.search(r'Tracking\n(\d+)\nvia USPS', order_text)
-                
-                if not all([order_match, customer_match, date_match]):
-                    print("Missing order information, skipping")
-                    continue
-                
-                order_number = order_match.group(1)
-                print(f"Processing order: {order_number}")
-
-                try:
-                    order_date = datetime.strptime(date_match.group(1).strip(), '%b %d, %Y').date()
-                except ValueError as e:
-                    print(f"Date conversion error: {str(e)}")
-                    continue
-
-                # Create order data
-                order_data = {
-                    'order_number': order_number,
-                    'customer_name': customer_match.group(1).strip(),
-                    'shipping_address': extract_address(order_text),
-                    'order_date': order_date,
-                    'tracking_number': tracking_match.group(1) if tracking_match else '',
-                }
-
-                # Extract products
-                try:
-                    items = extract_items(order_text, order_number)
-                    if not items:
-                        print(f"No products found for order {order_number}")
-                        continue
-                    order_data['items'] = items
-                except Exception as e:
-                    print(f"Product extraction error: {str(e)}")
-                    continue
-                
-                # Add gift message (if exists)
-                try:
-                    gift_message_match = re.search(r'Gift message\n(.*?)\n', order_text)
-                    if gift_message_match:
-                        order_data['gift_message'] = gift_message_match.group(1).strip()
-                except Exception as e:
-                    print(f"Gift message extraction error: {str(e)}")
-                
-                orders.append(order_data)
-                print(f"Order {order_number} processed successfully")
-            
-            except Exception as e:
-                print(f"Order processing error: {str(e)}")
                 continue
 
         if not orders:
