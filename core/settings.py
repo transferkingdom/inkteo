@@ -139,19 +139,21 @@ USE_TZ = True
 STATIC_URL = '/static/'
 if DEBUG:
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, 'static')
+    ]
 else:
-    STATIC_ROOT = '/etc/easypanel/projects/inkteo/inkteo/code/static'
-
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static')
-]
+    STATIC_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/static'
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, 'static')
+    ]
 
 # Media files
 MEDIA_URL = '/media/'
 if DEBUG:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 else:
-    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/code/media'
+    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
 
 # Security Settings
 if not DEBUG:
