@@ -12,7 +12,7 @@ import traceback
 from django.http import HttpResponse, JsonResponse
 import json
 from django.utils import timezone
-from django.conf import settings as django_settings
+from django.conf import settings
 from allauth.account.utils import send_email_confirmation
 from django.db.models import Q
 from django.contrib.auth.password_validation import validate_password
@@ -23,7 +23,6 @@ from django.core.serializers.json import DjangoJSONEncoder
 from datetime import date, datetime
 import os
 from django.core.files import File
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -428,14 +427,7 @@ def order_detail(request, order_id):
         print_settings = PrintImageSettings.objects.get(user=request.user)
         print_folder = print_settings.print_folder_path
         
-        if not django_settings.DEBUG:  # Sadece production'da log
-            print(f"DEBUG - Print folder path: {print_folder}")
-            print(f"DEBUG - MEDIA_ROOT: {django_settings.MEDIA_ROOT}")
-        
         if print_folder and os.path.exists(print_folder):
-            if not django_settings.DEBUG:  # Sadece production'da log
-                print(f"DEBUG - Print folder exists and is readable")
-            
             # Create a set to track processed SKUs
             processed_skus = set()
             
@@ -461,38 +453,16 @@ def order_detail(request, order_id):
                                     target_filename = f"{item.sku}{file_extension}"
                                     
                                     # Create target directory
-                                    if django_settings.DEBUG:
-                                        target_dir = os.path.join('media', 'orders', 'images', str(batch.order_id), 'print_images')
-                                    else:
-                                        target_dir = os.path.join('/etc/easypanel/projects/inkteo/inkteo/code/media', 'orders', 'images', str(batch.order_id), 'print_images')
-                                        print(f"DEBUG - Target directory: {target_dir}")
-                                    
+                                    target_dir = os.path.join('media', 'orders', 'images', str(batch.order_id), 'print_images')
                                     os.makedirs(target_dir, exist_ok=True)
-                                    
-                                    if not django_settings.DEBUG:  # Sadece production'da log
-                                        print(f"DEBUG - Directory created/exists: {os.path.exists(target_dir)}")
                                     
                                     # Copy file to target directory
                                     import shutil
                                     target_path = os.path.join(target_dir, target_filename)
-                                    
-                                    if not django_settings.DEBUG:  # Sadece production'da log
-                                        print(f"DEBUG - Copying from {source_path} to {target_path}")
-                                    
-                                    try:
-                                        shutil.copy2(source_path, target_path)
-                                        if not django_settings.DEBUG:  # Sadece production'da log
-                                            print(f"DEBUG - File copied successfully")
-                                    except Exception as copy_error:
-                                        if not django_settings.DEBUG:  # Sadece production'da log
-                                            print(f"DEBUG - Error copying file: {str(copy_error)}")
-                                        raise
+                                    shutil.copy2(source_path, target_path)
                                     
                                     # Set relative path for database
                                     relative_path = f"orders/images/{batch.order_id}/print_images/{target_filename}"
-                                    
-                                    if not django_settings.DEBUG:  # Sadece production'da log
-                                        print(f"DEBUG - Database path: {relative_path}")
                                     
                                     # Update all items with the same SKU
                                     same_sku_items = OrderItem.objects.filter(
@@ -502,17 +472,12 @@ def order_detail(request, order_id):
                                     for same_item in same_sku_items:
                                         same_item.print_image = relative_path
                                         same_item.save()
-                                        if not django_settings.DEBUG:  # Sadece production'da log
-                                            print(f"DEBUG - Updated item {same_item.id} with path {relative_path}")
                                     
                                     break
     except PrintImageSettings.DoesNotExist:
-        if not django_settings.DEBUG:  # Sadece production'da log
-            print("DEBUG - PrintImageSettings not found for user")
         pass
     except Exception as e:
-        if not django_settings.DEBUG:  # Sadece production'da log
-            print(f"DEBUG - Error: {str(e)}")
+        print(f"Error searching print images: {str(e)}")
         import traceback
         traceback.print_exc()
     
