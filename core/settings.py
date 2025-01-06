@@ -73,6 +73,8 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'django.template.context_processors.media',
+                'core.context_processors.media_url',
             ],
         },
     },
@@ -144,10 +146,7 @@ STATICFILES_FINDERS = [
 
 # Media files
 MEDIA_URL = '/media/'
-if DEBUG:
-    MEDIA_ROOT = BASE_DIR / 'media'
-else:
-    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Security Settings
 if not DEBUG:

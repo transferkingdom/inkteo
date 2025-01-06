@@ -27,18 +27,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
     path('dashboard/', include('dashboard.urls')),
-    # Static dosyalar için özel URL
-    path('static/<path:path>', serve, {
-        'document_root': settings.STATIC_ROOT,
-    }),
-    path('media/<path:path>', serve, {
-        'document_root': settings.MEDIA_ROOT,
-    }),
     path('verification-required/', verification_required_view, name='verification_required'),
     path('', TemplateView.as_view(template_name='home.html'), name='home'),
 ]
 
 # Her durumda static ve media dosyalarını serve et
-if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

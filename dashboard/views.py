@@ -452,8 +452,8 @@ def order_detail(request, order_id):
                                     file_extension = os.path.splitext(file)[1]
                                     target_filename = f"{item.sku}{file_extension}"
                                     
-                                    # Create target directory in MEDIA_ROOT
-                                    target_dir = os.path.join(settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
+                                    # Create target directory
+                                    target_dir = os.path.join('media', 'orders', 'images', str(batch.order_id), 'print_images')
                                     os.makedirs(target_dir, exist_ok=True)
                                     
                                     # Copy file to target directory
@@ -461,7 +461,7 @@ def order_detail(request, order_id):
                                     target_path = os.path.join(target_dir, target_filename)
                                     shutil.copy2(source_path, target_path)
                                     
-                                    # Set relative path for database (using forward slashes)
+                                    # Set relative path for database
                                     relative_path = f"orders/images/{batch.order_id}/print_images/{target_filename}"
                                     
                                     # Update all items with the same SKU
