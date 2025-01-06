@@ -147,7 +147,7 @@ MEDIA_URL = '/media/'
 if DEBUG:
     MEDIA_ROOT = BASE_DIR / 'media'
 else:
-    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/code/media'
+    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
 
 # Security Settings
 if not DEBUG:
