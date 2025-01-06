@@ -15,7 +15,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv('SECRET_KEY', 'TKInkteo3506')
 
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+DEBUG = True
 
 # Base URL Settings
 BASE_URL = os.getenv('BASE_URL', 'https://inkteo-inkteo.7r1maa.easypanel.host')
@@ -137,23 +137,17 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-if DEBUG:
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-    STATICFILES_DIRS = [
-        os.path.join(BASE_DIR, 'static')
-    ]
-else:
-    STATIC_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/static'
-    STATICFILES_DIRS = [
-        os.path.join(BASE_DIR, 'static')
-    ]
+STATIC_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/static'
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static')
+]
 
 # Media files
 MEDIA_URL = '/media/'
-if DEBUG:
-    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-else:
-    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
+MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
+
+# Statik dosya sunucusu ayarları
+STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 # Security Settings
 if not DEBUG:
