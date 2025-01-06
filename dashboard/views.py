@@ -427,12 +427,7 @@ def order_detail(request, order_id):
         print_settings = PrintImageSettings.objects.get(user=request.user)
         print_folder = print_settings.print_folder_path
         
-        print(f"DEBUG - Print folder path: {print_folder}")  # Debug log
-        print(f"DEBUG - Is DEBUG mode: {settings.DEBUG}")  # Debug log
-        print(f"DEBUG - MEDIA_ROOT: {settings.MEDIA_ROOT}")  # Debug log
-        
         if print_folder and os.path.exists(print_folder):
-            print(f"DEBUG - Print folder exists")  # Debug log
             # Create a set to track processed SKUs
             processed_skus = set()
             
@@ -443,19 +438,13 @@ def order_detail(request, order_id):
                         continue
                         
                     processed_skus.add(item.sku)
-                    print(f"DEBUG - Processing SKU: {item.sku}")  # Debug log
                     
                     # Search in print folder and subfolders
                     for root, dirs, files in os.walk(print_folder):
-                        print(f"DEBUG - Searching in directory: {root}")  # Debug log
-                        print(f"DEBUG - Files in directory: {files}")  # Debug log
-                        
                         for file in files:
                             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                                 file_name = os.path.splitext(file)[0].lower()
                                 search_sku = item.sku.lower().strip()
-                                
-                                print(f"DEBUG - Comparing file {file_name} with SKU {search_sku}")  # Debug log
                                 
                                 # Check if file name matches SKU
                                 if search_sku == file_name or file_name.startswith(f"{search_sku}-"):
@@ -464,32 +453,16 @@ def order_detail(request, order_id):
                                     target_filename = f"{item.sku}{file_extension}"
                                     
                                     # Create target directory
-                                    if settings.DEBUG:
-                                        target_dir = os.path.join('media', 'orders', 'images', str(batch.order_id), 'print_images')
-                                    else:
-                                        target_dir = os.path.join('/etc/easypanel/projects/inkteo/inkteo/code/media', 'orders', 'images', str(batch.order_id), 'print_images')
-                                    
-                                    print(f"DEBUG - Target directory: {target_dir}")  # Debug log
-                                    
+                                    target_dir = os.path.join('media', 'orders', 'images', str(batch.order_id), 'print_images')
                                     os.makedirs(target_dir, exist_ok=True)
-                                    print(f"DEBUG - Created directory: {target_dir}")  # Debug log
-                                    print(f"DEBUG - Directory exists: {os.path.exists(target_dir)}")  # Debug log
                                     
                                     # Copy file to target directory
                                     import shutil
                                     target_path = os.path.join(target_dir, target_filename)
-                                    print(f"DEBUG - Target path: {target_path}")  # Debug log
-                                    
-                                    try:
-                                        shutil.copy2(source_path, target_path)
-                                        print(f"DEBUG - Successfully copied file from {source_path} to {target_path}")  # Debug log
-                                    except Exception as copy_error:
-                                        print(f"DEBUG - Error copying file: {str(copy_error)}")  # Debug log
-                                        raise
+                                    shutil.copy2(source_path, target_path)
                                     
                                     # Set relative path for database
                                     relative_path = f"orders/images/{batch.order_id}/print_images/{target_filename}"
-                                    print(f"DEBUG - Relative path for database: {relative_path}")  # Debug log
                                     
                                     # Update all items with the same SKU
                                     same_sku_items = OrderItem.objects.filter(
@@ -499,14 +472,12 @@ def order_detail(request, order_id):
                                     for same_item in same_sku_items:
                                         same_item.print_image = relative_path
                                         same_item.save()
-                                        print(f"DEBUG - Updated item {same_item.id} with print_image: {relative_path}")  # Debug log
                                     
                                     break
     except PrintImageSettings.DoesNotExist:
-        print("DEBUG - PrintImageSettings not found for user")  # Debug log
         pass
     except Exception as e:
-        print(f"DEBUG - Error searching print images: {str(e)}")
+        print(f"Error searching print images: {str(e)}")
         import traceback
         traceback.print_exc()
     
