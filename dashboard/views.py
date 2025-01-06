@@ -456,7 +456,7 @@ def order_detail(request, order_id):
                                     target_filename = f"{item.sku}{file_extension}"
                                     
                                     # Create target directory
-                                    target_dir = os.path.join('code', 'media', 'orders', 'images', str(batch.order_id), 'print_images')
+                                    target_dir = os.path.join('/etc/easypanel/projects/inkteo/inkteo/code/media', 'orders', 'images', str(batch.order_id), 'print_images')
                                     os.makedirs(target_dir, exist_ok=True)
                                     print(f"Created directory: {target_dir}")  # Debug log
                                     
