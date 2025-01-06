@@ -427,6 +427,8 @@ def order_detail(request, order_id):
         print_settings = PrintImageSettings.objects.get(user=request.user)
         print_folder = print_settings.print_folder_path
         
+        print(f"Print folder path: {print_folder}")  # Debug log
+        
         if print_folder and os.path.exists(print_folder):
             # Create a set to track processed SKUs
             processed_skus = set()
@@ -438,6 +440,7 @@ def order_detail(request, order_id):
                         continue
                         
                     processed_skus.add(item.sku)
+                    print(f"Processing SKU: {item.sku}")  # Debug log
                     
                     # Search in print folder and subfolders
                     for root, dirs, files in os.walk(print_folder):
@@ -452,14 +455,16 @@ def order_detail(request, order_id):
                                     file_extension = os.path.splitext(file)[1]
                                     target_filename = f"{item.sku}{file_extension}"
                                     
-                                    # Create target directory in MEDIA_ROOT
-                                    target_dir = os.path.join(settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
+                                    # Create target directory
+                                    target_dir = os.path.join('code', 'media', 'orders', 'images', str(batch.order_id), 'print_images')
                                     os.makedirs(target_dir, exist_ok=True)
+                                    print(f"Created directory: {target_dir}")  # Debug log
                                     
                                     # Copy file to target directory
                                     import shutil
                                     target_path = os.path.join(target_dir, target_filename)
                                     shutil.copy2(source_path, target_path)
+                                    print(f"Copied file from {source_path} to {target_path}")  # Debug log
                                     
                                     # Set relative path for database
                                     relative_path = f"orders/images/{batch.order_id}/print_images/{target_filename}"
@@ -472,10 +477,11 @@ def order_detail(request, order_id):
                                     for same_item in same_sku_items:
                                         same_item.print_image = relative_path
                                         same_item.save()
+                                        print(f"Updated item {same_item.id} with print_image: {relative_path}")  # Debug log
                                     
-                                    print(f"Print image saved: {relative_path}")  # Debug için log
                                     break
     except PrintImageSettings.DoesNotExist:
+        print("PrintImageSettings not found for user")  # Debug log
         pass
     except Exception as e:
         print(f"Error searching print images: {str(e)}")
