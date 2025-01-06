@@ -46,9 +46,6 @@
                 <div class="text-right">
                     <p class="text-gray-600">{{ order.order_date|date:"Y-m-d" }}</p>
                     <p class="text-sm">Tracking: {{ order.tracking_number }}</p>
-                    {% if order.gift_message %}
-                    <p class="text-sm mt-2 italic">"{{ order.gift_message }}"</p>
-                    {% endif %}
                 </div>
             </div>
 
@@ -60,7 +57,7 @@
                                 Product Image
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Product Name
+                                Print Image
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 SKU
@@ -87,16 +84,16 @@
                         <tr>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 {% if item.image %}
-                                    <img src="{{ item.image.url }}" alt="{{ item.name }}" class="w-20 h-20 object-cover rounded">
+                                    <img src="{{ item.image.url }}" alt="Product: {{ item.sku }}" class="w-[100px] h-auto object-contain">
                                 {% else %}
-                                    <span class="text-red-500">No Image</span>
+                                    <span class="text-gray-500">No Image</span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4">
-                                {% if item.name %}
-                                    {{ item.name }}
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if item.print_image %}
+                                    <img src="/media/{{ item.print_image }}" alt="Print: {{ item.sku }}" class="w-[100px] h-auto object-contain">
                                 {% else %}
-                                    <span class="text-red-500">No Product Name</span>
+                                    -
                                 {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

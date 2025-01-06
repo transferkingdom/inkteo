@@ -1,5 +1,8 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
+from django.conf import settings
+import os
 
 class SearchPattern(models.Model):
     """Model for search patterns"""
@@ -59,10 +62,17 @@ class OrderDetail(models.Model):
     class Meta:
         ordering = ['id']  # PDF'deki sıraya göre sıralama
 
+def print_image_upload_path(instance, filename):
+    """Print image için upload yolunu belirle"""
+    # Get batch order ID from the related order
+    batch_id = instance.order.batch.order_id
+    # Create path: orders/images/BATCH_ID/print_images/filename
+    return os.path.join('orders', 'images', str(batch_id), 'print_images', filename)
+
 class OrderItem(models.Model):
     """Order items model"""
     order = models.ForeignKey(OrderDetail, on_delete=models.CASCADE, related_name='items')
-    product_name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, default='')
     sku = models.CharField(max_length=50)
     quantity = models.IntegerField(default=1)
     size = models.CharField(max_length=100)
@@ -70,9 +80,23 @@ class OrderItem(models.Model):
     personalization = models.CharField(max_length=255, blank=True, null=True)
     image = models.ImageField(upload_to='orders/images/%Y/%m/%d/', null=True, blank=True)
     image_url = models.URLField(null=True, blank=True)  # Original image URL
+    print_image = models.CharField(max_length=500, null=True, blank=True)  # Store relative path to print image
 
     def __str__(self):
-        return f"{self.product_name} - {self.sku}"
+        return f"{self.name} - {self.sku}"
 
     class Meta:
         ordering = ['id']  # PDF'deki sıraya göre sıralama
+
+class PrintImageSettings(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    print_folder_path = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Print Image Settings'
+        verbose_name_plural = 'Print Image Settings'
+
+    def __str__(self):
+        return f"Print Settings for {self.user.email}"

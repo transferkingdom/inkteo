@@ -1,0 +1,97 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Print Image Ayarları</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="printSettingsForm">
+                        {% csrf_token %}
+                        <div class="form-group">
+                            <label>Print Klasörü</label>
+                            <div class="input-group">
+                                {{ form.print_folder_path }}
+                                <div class="input-group-append">
+                                    <label for="folderInput" class="btn btn-primary mb-0">
+                                        Klasör Seç
+                                    </label>
+                                    <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">
+                                Print image'ların bulunduğu ana klasörü seçin. Alt klasörler otomatik olarak taranacaktır.
+                            </small>
+                        </div>
+                        <button type="submit" class="btn btn-success">Kaydet</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('folderInput').addEventListener('change', function(e) {
+    if (this.files.length > 0) {
+        // Seçilen ilk dosyanın bulunduğu klasörün adını al
+        const firstFile = this.files[0];
+        const folderName = firstFile.webkitRelativePath.split('/')[0];
+        document.getElementById('id_print_folder_path').value = folderName;
+        
+        // Seçilen klasörü API'ye gönder
+        fetch('{% url "dashboard:select_print_folder" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: 'folder_path=' + encodeURIComponent(folderName)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                toastr.success('Klasör başarıyla seçildi');
+            } else {
+                toastr.error('Klasör seçiminde hata oluştu');
+            }
+        })
+        .catch(error => {
+            console.error('Hata:', error);
+            toastr.error('Bir hata oluştu');
+        });
+    }
+});
+
+// Form gönderimini engelle ve AJAX ile gönder
+document.getElementById('printSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: new FormData(this),
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            toastr.success('Ayarlar başarıyla kaydedildi');
+        } else {
+            toastr.error('Ayarlar kaydedilirken hata oluştu');
+        }
+    })
+    .catch(error => {
+        console.error('Hata:', error);
+        toastr.error('Bir hata oluştu');
+    });
+});
+</script>
+{% endblock %} 

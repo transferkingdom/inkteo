@@ -109,7 +109,6 @@ def extract_items(order_text, order_id):
         # Split all text into lines
         lines = order_text.split('\n')
         current_item = None
-        product_lines = []
         
         # Get search patterns
         size_patterns = get_search_patterns('size')
@@ -124,24 +123,7 @@ def extract_items(order_text, order_id):
         for i, line in enumerate(lines):
             if line.startswith('SKU:'):
                 if current_item:
-                    try:
-                        # Extract product name
-                        current_item['name'] = extract_product_name('\n'.join(product_lines))
-                    except Exception as e:
-                        print(f"Product name extraction error: {str(e)}")
-                        current_item['errors'].append(f"Product Name: {str(e)}")
-                    
-                    try:
-                        # Get image URL
-                        image_url = extract_image_url(order_text, current_item['sku'])
-                        current_item['image_url'] = image_url
-                        current_item['image'] = save_product_image(image_url, order_id, current_item['sku'])
-                    except Exception as e:
-                        print(f"Image extraction error: {str(e)}")
-                        current_item['errors'].append(f"Product Image: {str(e)}")
-                    
                     items.append(current_item)
-                    product_lines = []
                 
                 # Start new item
                 sku_match = re.search(r'SKU: (.*)', line)
@@ -202,26 +184,9 @@ def extract_items(order_text, order_id):
                 if personalization_match and personalization_match.group(1).strip():
                     current_item['personalization'] = personalization_match.group(1).strip()
                 continue
-            
-            # Collect all lines before SKU (for product name)
-            product_lines.append(line)
         
         # Process last item
         if current_item:
-            try:
-                current_item['name'] = extract_product_name('\n'.join(product_lines))
-            except Exception as e:
-                print(f"Product name extraction error: {str(e)}")
-                current_item['errors'].append(f"Product Name: {str(e)}")
-            
-            try:
-                image_url = extract_image_url(order_text, current_item['sku'])
-                current_item['image_url'] = image_url
-                current_item['image'] = save_product_image(image_url, order_id, current_item['sku'])
-            except Exception as e:
-                print(f"Image extraction error: {str(e)}")
-                current_item['errors'].append(f"Product Image: {str(e)}")
-            
             items.append(current_item)
         
         # Make sure there is at least one item
@@ -233,6 +198,58 @@ def extract_items(order_text, order_id):
         print(f"Items extraction error for order {order_id}: {str(e)}")
         print(f"Order text: {order_text[:200]}...")  # Show first 200 characters
         raise
+
+def extract_images_from_page(page, batch_id):
+    """PDF sayfasından resimleri çıkar ve kaydet"""
+    try:
+        images = []
+        if '/Resources' in page and '/XObject' in page['/Resources']:
+            xObject = page['/Resources']['/XObject'].get_object()
+            
+            image_count = 1
+            for obj in xObject:
+                if xObject[obj]['/Subtype'] == '/Image':
+                    try:
+                        # Resim verilerini al
+                        image_data = xObject[obj].get_object()
+                        
+                        # Resim formatını belirle
+                        if xObject[obj]['/Filter'] == '/DCTDecode':
+                            extension = '.jpg'
+                        elif xObject[obj]['/Filter'] == '/FlateDecode':
+                            extension = '.png'
+                        elif xObject[obj]['/Filter'] == '/JPXDecode':
+                            extension = '.jp2'
+                        else:
+                            print(f"Desteklenmeyen resim formatı: {xObject[obj]['/Filter']}")
+                            continue
+                        
+                        # Tüm resimleri jpg olarak kaydet
+                        extension = '.jpg'
+                        
+                        # Yeni dosya adı formatı: media/orders/images/batch_id/1.jpg
+                        relative_path = os.path.join('orders', 'images', str(batch_id), f'{image_count}{extension}')
+                        absolute_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+                        
+                        # Dizin yapısını oluştur
+                        os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
+                        
+                        # Resmi kaydet
+                        image_data = image_data.get_data()
+                        with open(absolute_path, 'wb') as img_file:
+                            img_file.write(image_data)
+                        
+                        images.append(relative_path)
+                        image_count += 1
+                        
+                    except Exception as e:
+                        print(f"Resim kaydetme hatası: {str(e)}")
+                        continue
+        
+        return images
+    except Exception as e:
+        print(f"Resim çıkarma hatası: {str(e)}")
+        return []
 
 def extract_order_data(pdf_file):
     """Extract order data from PDF"""
@@ -251,6 +268,7 @@ def extract_order_data(pdf_file):
         # Process pages in chunks
         orders = []
         current_text = ""
+        current_order_number = None
         total_pages = len(reader.pages)
         print(f"Processing {total_pages} pages")
 
@@ -267,72 +285,34 @@ def extract_order_data(pdf_file):
                         print(f"No text could be extracted from page {page_num + 1}, skipping")
                         continue
                     
-                    current_text += page_text + "\n"
-                    
-                    # If we find an order number or this is the last page, process the accumulated text
-                    if 'Order #' in page_text or page_num == total_pages - 1:
-                        order_texts = re.split(r'(?=Order #\d+)', current_text)
-                        for order_text in order_texts:
-                            if not order_text.strip().startswith('Order #'):
-                                continue
+                    # Sayfadaki sipariş numarasını bul
+                    order_match = re.search(r'Order #(\d+)', page_text)
+                    if order_match:
+                        page_order_number = order_match.group(1)
+                        
+                        # Eğer yeni bir sipariş başladıysa, önceki siparişi işle
+                        if current_order_number and current_order_number != page_order_number:
+                            # Önceki siparişi işle
+                            process_order_text = current_text
+                            current_text = page_text
                             
                             try:
-                                # Extract basic order information
-                                order_match = re.search(r'Order #(\d+)', order_text)
-                                customer_match = re.search(r'Ship to\n(.*?)\n', order_text)
-                                date_match = re.search(r'Order date\n(.*?)\n', order_text)
-                                tracking_match = re.search(r'Tracking\n(\d+)\nvia USPS', order_text)
-                                
-                                if not all([order_match, customer_match, date_match]):
-                                    print("Missing order information, skipping")
-                                    continue
-                                
-                                order_number = order_match.group(1)
-                                print(f"Processing order: {order_number}")
-
-                                try:
-                                    order_date = datetime.strptime(date_match.group(1).strip(), '%b %d, %Y').date()
-                                except ValueError as e:
-                                    print(f"Date conversion error: {str(e)}")
-                                    continue
-
-                                # Create order data
-                                order_data = {
-                                    'order_number': order_number,
-                                    'customer_name': customer_match.group(1).strip(),
-                                    'shipping_address': extract_address(order_text),
-                                    'order_date': order_date,
-                                    'tracking_number': tracking_match.group(1) if tracking_match else '',
-                                }
-
-                                # Extract products
-                                try:
-                                    items = extract_items(order_text, order_number)
-                                    if not items:
-                                        print(f"No products found for order {order_number}")
-                                        continue
-                                    order_data['items'] = items
-                                except Exception as e:
-                                    print(f"Product extraction error: {str(e)}")
-                                    continue
-                                
-                                # Add gift message (if exists)
-                                try:
-                                    gift_message_match = re.search(r'Gift message\n(.*?)\n', order_text)
-                                    if gift_message_match:
-                                        order_data['gift_message'] = gift_message_match.group(1).strip()
-                                except Exception as e:
-                                    print(f"Gift message extraction error: {str(e)}")
-                                
-                                orders.append(order_data)
-                                print(f"Order {order_number} processed successfully")
-                            
+                                order_data = process_order_text_to_data(process_order_text)
+                                if order_data:
+                                    orders.append(order_data)
                             except Exception as e:
                                 print(f"Order processing error: {str(e)}")
-                                continue
-                        
-                        # Clear the accumulated text after processing
-                        current_text = ""
+                            
+                            # Yeni sipariş için hazırlık
+                            current_order_number = page_order_number
+                        else:
+                            # Aynı siparişin devamı
+                            current_text += page_text
+                            if not current_order_number:
+                                current_order_number = page_order_number
+                    else:
+                        # Sipariş numarası yoksa mevcut metne ekle
+                        current_text += page_text
                     
                 except Exception as e:
                     print(f"Text extraction error for page {page_num + 1}: {str(e)}")
@@ -341,6 +321,15 @@ def extract_order_data(pdf_file):
             except Exception as e:
                 print(f"Page {page_num + 1} processing error: {str(e)}")
                 continue
+
+        # Son siparişi işle
+        if current_text:
+            try:
+                order_data = process_order_text_to_data(current_text)
+                if order_data:
+                    orders.append(order_data)
+            except Exception as e:
+                print(f"Order processing error: {str(e)}")
 
         if not orders:
             raise Exception("No order data could be extracted from PDF.")
@@ -357,6 +346,62 @@ def extract_order_data(pdf_file):
         # Clean up memory
         if 'reader' in locals() and reader:
             reader = None
+
+def process_order_text_to_data(order_text):
+    """Sipariş metnini işleyip veri yapısına dönüştür"""
+    try:
+        # Extract basic order information
+        order_match = re.search(r'Order #(\d+)', order_text)
+        customer_match = re.search(r'Ship to\n(.*?)\n', order_text)
+        date_match = re.search(r'Order date\n(.*?)\n', order_text)
+        tracking_match = re.search(r'Tracking\n(\d+)\nvia USPS', order_text)
+        
+        if not all([order_match, customer_match, date_match]):
+            print("Missing order information, skipping")
+            return None
+        
+        order_number = order_match.group(1)
+        print(f"Processing order: {order_number}")
+
+        try:
+            order_date = datetime.strptime(date_match.group(1).strip(), '%b %d, %Y').date()
+        except ValueError as e:
+            print(f"Date conversion error: {str(e)}")
+            return None
+
+        # Create order data
+        order_data = {
+            'order_number': order_number,
+            'customer_name': customer_match.group(1).strip(),
+            'shipping_address': extract_address(order_text),
+            'order_date': order_date,
+            'tracking_number': tracking_match.group(1) if tracking_match else '',
+        }
+
+        # Extract products
+        try:
+            items = extract_items(order_text, order_number)
+            if not items:
+                print(f"No products found for order {order_number}")
+                return None
+            order_data['items'] = items
+        except Exception as e:
+            print(f"Product extraction error: {str(e)}")
+            return None
+        
+        # Add gift message (if exists)
+        try:
+            gift_message_match = re.search(r'Gift message\n(.*?)\n', order_text)
+            if gift_message_match:
+                order_data['gift_message'] = gift_message_match.group(1).strip()
+        except Exception as e:
+            print(f"Gift message extraction error: {str(e)}")
+        
+        return order_data
+    
+    except Exception as e:
+        print(f"Order text processing error: {str(e)}")
+        return None
 
 def generate_order_id():
     """Yeni bir batch order ID oluştur"""

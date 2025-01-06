@@ -12,15 +12,17 @@ import traceback
 from django.http import HttpResponse, JsonResponse
 import json
 from django.utils import timezone
-from django.conf import settings
+from django.conf import settings as django_settings
 from allauth.account.utils import send_email_confirmation
 from django.db.models import Q
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from .models import BatchOrder, OrderDetail, OrderItem
+from .models import BatchOrder, OrderDetail, OrderItem, PrintImageSettings
 from .utils import generate_order_id, extract_order_data
 from django.core.serializers.json import DjangoJSONEncoder
 from datetime import date, datetime
+import os
+from django.core.files import File
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -49,7 +51,17 @@ def settings(request):
     if 'messages' in request.session:
         del request.session['messages']
     
-    return render(request, 'dashboard/settings.html')
+    # Get print settings
+    try:
+        print_settings = PrintImageSettings.objects.get(user=request.user)
+    except PrintImageSettings.DoesNotExist:
+        print_settings = None
+    
+    context = {
+        'print_settings': print_settings
+    }
+    
+    return render(request, 'dashboard/settings.html', context)
 
 @ensure_csrf_cookie
 @login_required
@@ -409,8 +421,133 @@ def upload_orders(request):
 def order_detail(request, order_id):
     """Batch detay sayfası"""
     batch = get_object_or_404(BatchOrder, order_id=order_id)
+    
+    # Get print folder path from settings
+    try:
+        print_settings = PrintImageSettings.objects.get(user=request.user)
+        print_folder = print_settings.print_folder_path
+        
+        if print_folder and os.path.exists(print_folder):
+            # Create a set to track processed SKUs
+            processed_skus = set()
+            
+            # First, find all unique SKUs that need processing
+            for order in batch.orders.all():
+                for item in order.items.all():
+                    if item.print_image or item.sku in processed_skus:
+                        continue
+                        
+                    processed_skus.add(item.sku)
+                    
+                    # Search in print folder and subfolders
+                    for root, dirs, files in os.walk(print_folder):
+                        for file in files:
+                            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                file_name = os.path.splitext(file)[0].lower()
+                                search_sku = item.sku.lower().strip()
+                                
+                                # Check if file name matches SKU
+                                if search_sku == file_name or file_name.startswith(f"{search_sku}-"):
+                                    source_path = os.path.join(root, file)
+                                    file_extension = os.path.splitext(file)[1]
+                                    target_filename = f"{item.sku}{file_extension}"
+                                    
+                                    # Create target directory
+                                    target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
+                                    os.makedirs(target_dir, exist_ok=True)
+                                    
+                                    # Copy file to target directory
+                                    import shutil
+                                    target_path = os.path.join(target_dir, target_filename)
+                                    shutil.copy2(source_path, target_path)
+                                    
+                                    # Set relative path for database
+                                    relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', target_filename)
+                                    
+                                    # Update all items with the same SKU
+                                    same_sku_items = OrderItem.objects.filter(
+                                        order__batch=batch,
+                                        sku=item.sku
+                                    )
+                                    for same_item in same_sku_items:
+                                        same_item.print_image = relative_path
+                                        same_item.save()
+                                    break
+    except PrintImageSettings.DoesNotExist:
+        pass
+    except Exception as e:
+        print(f"Error searching print images: {str(e)}")
+        import traceback
+        traceback.print_exc()
+    
     context = {
         'batch': batch,
         'active_tab': 'orders'
     }
     return render(request, 'dashboard/orders/detail.html', context)
+
+@login_required
+def print_image_settings(request):
+    if request.method == 'POST':
+        try:
+            folder_path = request.POST.get('print_folder_path')
+            
+            # Get or create print settings
+            settings, created = PrintImageSettings.objects.get_or_create(
+                user=request.user,
+                defaults={'print_folder_path': folder_path}
+            )
+            
+            if not created:
+                settings.print_folder_path = folder_path
+                settings.save()
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Settings saved successfully'
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            })
+    
+    # GET request - return current settings
+    try:
+        settings = PrintImageSettings.objects.get(user=request.user)
+        return JsonResponse({
+            'status': 'success',
+            'print_folder_path': settings.print_folder_path
+        })
+    except PrintImageSettings.DoesNotExist:
+        return JsonResponse({
+            'status': 'success',
+            'print_folder_path': ''
+        })
+
+@login_required
+def select_print_folder(request):
+    """Print klasörü seçimi"""
+    if request.method == 'POST':
+        folder_path = request.POST.get('folder_path')
+        if folder_path:
+            settings = PrintImageSettings.objects.first()
+            if not settings:
+                settings = PrintImageSettings.objects.create()
+            settings.print_folder_path = folder_path
+            settings.save()
+            return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error'})
+
+def find_print_image(sku):
+    """SKU'ya göre print image dosyasını bul"""
+    settings = PrintImageSettings.objects.first()
+    if not settings or not settings.print_folder_path:
+        return None
+        
+    for root, dirs, files in os.walk(settings.print_folder_path):
+        for file in files:
+            if sku in file:
+                return os.path.join(root, file)
+    return None

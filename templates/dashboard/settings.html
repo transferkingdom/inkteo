@@ -111,6 +111,12 @@
                                 class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                             Security
                         </button>
+                        <button @click="activeTab = 'print_image'"
+                                :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'print_image',
+                                        'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'print_image'}"
+                                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                            Print Image
+                        </button>
                     </nav>
                 </div>
 
@@ -289,6 +295,38 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- Print Image Tab -->
+                <div x-show="activeTab === 'print_image'" class="space-y-6 max-w-2xl mt-6">
+                    <form method="post" id="printSettingsForm" action="{% url 'dashboard:print_image_settings' %}">
+                        {% csrf_token %}
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Print Folder Path</label>
+                                <div class="input-group">
+                                    <input type="text" name="print_folder_path" id="id_print_folder_path"
+                                           value="{{ print_settings.print_folder_path|default:'' }}"
+                                           class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                                  focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                                  text-base">
+                                </div>
+                                <small class="block mt-2 text-sm text-gray-500">
+                                    Enter the folder path where print images are stored. Subfolders will be scanned automatically.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <button type="submit"
+                                    class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
+                                           text-base font-medium rounded-md text-white bg-[#0088CC] 
+                                           hover:bg-[#006DA3] focus:outline-none focus:ring-2 
+                                           focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
+                                Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -427,5 +465,43 @@ if (passwordForm) {
         }
     });
 }
+
+// Print Image form gönderimi
+document.getElementById('printSettingsForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: new FormData(this),
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = data.status === 'success' ? 
+            'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-md shadow-lg z-50' :
+            'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-md shadow-lg z-50';
+        messageDiv.textContent = data.status === 'success' ? 
+            'Settings saved successfully' : 
+            'Error saving settings';
+        document.body.appendChild(messageDiv);
+        
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 3000);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-md shadow-lg z-50';
+        messageDiv.textContent = 'An error occurred. Please try again.';
+        document.body.appendChild(messageDiv);
+        setTimeout(() => {
+            messageDiv.remove();
+        }, 3000);
+    });
+});
 </script>
 {% endblock %} 
