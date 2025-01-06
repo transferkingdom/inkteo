@@ -452,8 +452,8 @@ def order_detail(request, order_id):
                                     file_extension = os.path.splitext(file)[1]
                                     target_filename = f"{item.sku}{file_extension}"
                                     
-                                    # Create target directory
-                                    target_dir = os.path.join('media', 'orders', 'images', str(batch.order_id), 'print_images')
+                                    # Create target directory in MEDIA_ROOT
+                                    target_dir = os.path.join(settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
                                     os.makedirs(target_dir, exist_ok=True)
                                     
                                     # Copy file to target directory

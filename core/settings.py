@@ -146,7 +146,10 @@ STATICFILES_FINDERS = [
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+if DEBUG:
+    MEDIA_ROOT = BASE_DIR / 'media'
+else:
+    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/code/media'
 
 # Security Settings
 if not DEBUG:
