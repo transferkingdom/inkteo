@@ -322,6 +322,14 @@ if DEBUG:
     }
 else:
     # Production ortamı için logging
+    LOG_DIR = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/logs')
+    if not os.path.exists(LOG_DIR):
+        try:
+            os.makedirs(LOG_DIR, exist_ok=True)
+            os.chmod(LOG_DIR, 0o755)
+        except Exception as e:
+            print(f"Error creating log directory: {str(e)}")
+
     LOGGING = {
         'version': 1,
         'disable_existing_loggers': False,
@@ -338,8 +346,9 @@ else:
             },
             'file': {
                 'class': 'logging.FileHandler',
-                'filename': '/var/log/django.log',
+                'filename': os.path.join(LOG_DIR, 'django.log'),
                 'formatter': 'verbose',
+                'mode': 'a',  # Append mode
             },
         },
         'loggers': {

@@ -25,35 +25,21 @@ from datetime import date, datetime
 import shutil
 
 # Configure logging
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+logger = logging.getLogger('dashboard')
 
-# Create file handler
+# Remove manual log configuration since it's handled in settings.py
 try:
-    log_dir = '/var/log'
+    # Create log directory if it doesn't exist
+    log_dir = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/logs')
     if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
-    
+        os.makedirs(log_dir, exist_ok=True)
+        os.chmod(log_dir, 0o755)
+        
+    # Create log file if it doesn't exist
     log_file = os.path.join(log_dir, 'django.log')
     if not os.path.exists(log_file):
         open(log_file, 'a').close()
-        os.chmod(log_file, 0o666)
-    
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(logging.INFO)
-    
-    # Create console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    
-    # Create formatter
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
-    
-    # Add handlers to logger
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+        os.chmod(log_file, 0o644)
 except Exception as e:
     print(f"Error configuring logger: {str(e)}")
 
