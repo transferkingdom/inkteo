@@ -16,7 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'TKInkteo3506')
 
 # Debug settings
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 # Base URL Settings
 BASE_URL = os.getenv('BASE_URL', 'https://inkteo-inkteo.7r1maa.easypanel.host')
@@ -88,11 +88,11 @@ if DEBUG:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'inkteo'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD', 'Heysem35Saint!'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5432'),
+            'NAME': 'inkteo_db',
+            'USER': 'postgres',
+            'PASSWORD': '982286',
+            'HOST': 'localhost',
+            'PORT': '5432',
         }
     }
 else:
@@ -138,16 +138,18 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-if DEBUG:
-    STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-    STATICFILES_DIRS = [
-        os.path.join(BASE_DIR, 'static')
-    ]
+STATIC_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/static'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+STATICFILES_FINDERS = [
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+]
+
+# Security Settings
+if not DEBUG:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 else:
-    STATIC_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/static'
-    STATICFILES_DIRS = [
-        os.path.join(BASE_DIR, 'static')
-    ]
+    STATICFILES_STORAGE = 'django.contrib.staticfiles.storage.StaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
