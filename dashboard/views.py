@@ -462,6 +462,22 @@ def order_detail(request, order_id):
     """Batch detay sayfası"""
     batch = get_object_or_404(BatchOrder, order_id=order_id)
     
+    # Test Docker volume permissions
+    try:
+        print("[DEBUG] Testing Docker volume permissions...")
+        test_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images')
+        print(f"[DEBUG] Testing directory: {test_dir}")
+        
+        if os.path.exists(test_dir):
+            print(f"[DEBUG] Directory exists. Permissions: {oct(os.stat(test_dir).st_mode)[-3:]}")
+            print(f"[DEBUG] Owner: {os.stat(test_dir).st_uid}")
+            print(f"[DEBUG] Group: {os.stat(test_dir).st_gid}")
+            print(f"[DEBUG] Contents: {os.listdir(test_dir)}")
+        else:
+            print("[DEBUG] Directory does not exist!")
+    except Exception as e:
+        print(f"[ERROR] Error testing volume: {str(e)}")
+    
     # Get print folder path from settings
     try:
         print_settings = PrintImageSettings.objects.get(user=request.user)
@@ -511,14 +527,18 @@ def order_detail(request, order_id):
                                         # Önce üst dizinleri oluştur
                                         os.makedirs(os.path.dirname(target_dir), exist_ok=True)
                                         os.chmod(os.path.dirname(target_dir), 0o755)
+                                        print(f"[DEBUG] Parent directory permissions set")
                                         
                                         # Sonra hedef dizini oluştur
                                         os.makedirs(target_dir, exist_ok=True)
                                         os.chmod(target_dir, 0o755)
-                                        print(f"[DEBUG] Directory created with permissions: {target_dir}")
+                                        print(f"[DEBUG] Target directory permissions set")
                                         
-                                        # Print directory contents after creation
-                                        print(f"[DEBUG] Directory contents after creation: {os.listdir(target_dir) if os.path.exists(target_dir) else 'Directory not found'}")
+                                        # Print directory contents and permissions
+                                        print(f"[DEBUG] Target directory permissions: {oct(os.stat(target_dir).st_mode)[-3:]}")
+                                        print(f"[DEBUG] Target directory owner: {os.stat(target_dir).st_uid}")
+                                        print(f"[DEBUG] Target directory group: {os.stat(target_dir).st_gid}")
+                                        print(f"[DEBUG] Directory contents: {os.listdir(target_dir) if os.path.exists(target_dir) else 'Directory not found'}")
                                         
                                     except Exception as e:
                                         print(f"[ERROR] Error creating directory {target_dir}: {str(e)}")
@@ -531,17 +551,25 @@ def order_detail(request, order_id):
                                         print(f"[DEBUG] Copying file from {source_path} to {target_path}")
                                         
                                         # Dosyayı kopyala
-                                        with open(source_path, 'rb') as src, open(target_path, 'wb') as dst:
-                                            dst.write(src.read())
+                                        with open(source_path, 'rb') as src:
+                                            file_data = src.read()
+                                            print(f"[DEBUG] Read {len(file_data)} bytes from source file")
+                                            
+                                            with open(target_path, 'wb') as dst:
+                                                dst.write(file_data)
+                                                print(f"[DEBUG] Wrote {len(file_data)} bytes to target file")
                                         
                                         # İzinleri ayarla
                                         os.chmod(target_path, 0o644)
-                                        print(f"[DEBUG] File copied and permissions set: {target_path}")
+                                        print(f"[DEBUG] File permissions set to 644")
                                         
-                                        # Verify file exists after copy
+                                        # Verify file exists and check its properties
                                         if os.path.exists(target_path):
                                             print(f"[DEBUG] File exists at target path: {target_path}")
                                             print(f"[DEBUG] File size: {os.path.getsize(target_path)} bytes")
+                                            print(f"[DEBUG] File permissions: {oct(os.stat(target_path).st_mode)[-3:]}")
+                                            print(f"[DEBUG] File owner: {os.stat(target_path).st_uid}")
+                                            print(f"[DEBUG] File group: {os.stat(target_path).st_gid}")
                                         else:
                                             print(f"[ERROR] File not found at target path after copy: {target_path}")
                                         
