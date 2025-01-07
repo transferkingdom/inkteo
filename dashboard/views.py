@@ -467,10 +467,10 @@ def order_detail(request, order_id):
         print_settings = PrintImageSettings.objects.get(user=request.user)
         print_folder = print_settings.print_folder_path
         
-        logger.info(f"Print folder path: {print_folder}")
+        print(f"[DEBUG] Print folder path: {print_folder}")
         
         if print_folder and os.path.exists(print_folder):
-            logger.info("Print folder exists")
+            print("[DEBUG] Print folder exists")
             # Create a set to track processed SKUs
             processed_skus = set()
             
@@ -481,16 +481,19 @@ def order_detail(request, order_id):
                         continue
                         
                     processed_skus.add(item.sku)
-                    logger.info(f"Processing SKU: {item.sku}")
+                    print(f"[DEBUG] Processing SKU: {item.sku}")
                     
                     # Search in print folder and subfolders
                     for root, dirs, files in os.walk(print_folder):
-                        logger.info(f"Searching in directory: {root}")
+                        print(f"[DEBUG] Searching in directory: {root}")
+                        print(f"[DEBUG] Files in directory: {files}")
                         
                         for file in files:
                             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                                 file_name = os.path.splitext(file)[0].lower()
                                 search_sku = item.sku.lower().strip()
+                                
+                                print(f"[DEBUG] Comparing file: {file_name} with SKU: {search_sku}")
                                 
                                 # Check if file name matches SKU
                                 if search_sku == file_name or file_name.startswith(f"{search_sku}-"):
@@ -498,27 +501,43 @@ def order_detail(request, order_id):
                                     file_extension = os.path.splitext(file)[1]
                                     target_filename = f"{item.sku}{file_extension}"
                                     
+                                    print(f"[DEBUG] Found matching file: {source_path}")
+                                    
                                     # Create target directory structure
                                     target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
                                     try:
+                                        print(f"[DEBUG] Creating directory: {target_dir}")
                                         os.makedirs(target_dir, exist_ok=True)
                                         os.chmod(target_dir, 0o755)
-                                        logger.info(f"Created directory with permissions: {target_dir}")
+                                        print(f"[DEBUG] Directory created with permissions: {target_dir}")
+                                        
+                                        # Print directory contents after creation
+                                        print(f"[DEBUG] Directory contents after creation: {os.listdir(target_dir) if os.path.exists(target_dir) else 'Directory not found'}")
+                                        
                                     except Exception as e:
-                                        logger.error(f"Error creating directory {target_dir}: {str(e)}")
+                                        print(f"[ERROR] Error creating directory {target_dir}: {str(e)}")
                                         continue
                                     
                                     # Copy file to target directory
                                     target_path = os.path.join(target_dir, target_filename)
                                     try:
+                                        print(f"[DEBUG] Copying file from {source_path} to {target_path}")
                                         # Önce dosyayı kopyala
                                         shutil.copy2(source_path, target_path)
                                         # Sonra izinleri ayarla
                                         os.chmod(target_path, 0o644)
-                                        logger.info(f"File copied and permissions set: {target_path}")
+                                        print(f"[DEBUG] File copied and permissions set: {target_path}")
+                                        
+                                        # Verify file exists after copy
+                                        if os.path.exists(target_path):
+                                            print(f"[DEBUG] File exists at target path: {target_path}")
+                                            print(f"[DEBUG] File size: {os.path.getsize(target_path)} bytes")
+                                        else:
+                                            print(f"[ERROR] File not found at target path after copy: {target_path}")
                                         
                                         # Set relative path for database
                                         relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', target_filename)
+                                        print(f"[DEBUG] Setting database path: {relative_path}")
                                         
                                         # Update all items with the same SKU
                                         same_sku_items = OrderItem.objects.filter(
@@ -528,19 +547,20 @@ def order_detail(request, order_id):
                                         for same_item in same_sku_items:
                                             same_item.print_image = relative_path
                                             same_item.save()
-                                            logger.info(f"Updated item {same_item.id} with path: {relative_path}")
+                                            print(f"[DEBUG] Updated item {same_item.id} with path: {relative_path}")
                                         
                                     except Exception as e:
-                                        logger.error(f"Error copying file {source_path} to {target_path}: {str(e)}")
+                                        print(f"[ERROR] Error copying file {source_path} to {target_path}: {str(e)}")
+                                        print(f"[ERROR] Full traceback: {traceback.format_exc()}")
                                         continue
                                     
                                     break
     except PrintImageSettings.DoesNotExist:
-        logger.warning("PrintImageSettings not found")
+        print("[WARNING] PrintImageSettings not found")
         pass
     except Exception as e:
-        logger.error(f"Error searching print images: {str(e)}")
-        logger.error(traceback.format_exc())
+        print(f"[ERROR] Error searching print images: {str(e)}")
+        print(f"[ERROR] Full traceback: {traceback.format_exc()}")
     
     context = {
         'batch': batch,
