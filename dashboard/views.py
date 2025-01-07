@@ -477,8 +477,28 @@ def order_detail(request, order_id):
             
             # Ortama göre yolu ayarla
             if not django_settings.DEBUG:  # Production ortamı
-                print_folder = os.path.join('/mnt/c', print_folder[3:].replace('\\', '/'))
-                logger.info(f"Production path: {print_folder}")
+                # Olası mount noktalarını kontrol et
+                mount_points = ['/mnt/c', '/c']
+                docker_path = None
+                
+                for mount in mount_points:
+                    test_path = os.path.join(mount, print_folder[3:].replace('\\', '/'))
+                    logger.info(f"Checking mount point: {test_path}")
+                    if os.path.exists(mount):
+                        docker_path = test_path
+                        logger.info(f"Found valid mount point: {mount}")
+                        break
+                
+                if docker_path:
+                    print_folder = docker_path
+                    logger.info(f"Using Docker path: {print_folder}")
+                else:
+                    logger.warning("No valid mount point found for Windows drive")
+                    # Alternatif yol dene
+                    alt_path = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
+                    if os.path.exists(alt_path):
+                        print_folder = alt_path
+                        logger.info(f"Using alternative path: {print_folder}")
             else:  # Local ortam
                 logger.info(f"Local path: {print_folder}")
             
