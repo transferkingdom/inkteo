@@ -28,10 +28,13 @@ urlpatterns = [
     path('dashboard/', include('dashboard.urls')),
     path('verification-required/', verification_required_view, name='verification_required'),
     path('', include('pages.urls')),
+    
+    # Media dosyaları için özel URL
+    path('media/<path:path>/', serve, {
+        'document_root': settings.MEDIA_ROOT,
+    }, name='media'),
 ]
 
-# Media dosyaları için URL yapılandırması
+# Debug modunda static ve media dosyaları için ekstra URL'ler
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-else:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

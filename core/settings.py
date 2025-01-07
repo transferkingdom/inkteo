@@ -170,8 +170,20 @@ MEDIA_DIRS = [
     os.path.join(MEDIA_ROOT, 'orders/images'),
     os.path.join(MEDIA_ROOT, 'orders/raw_data')
 ]
+
+# Create directories and set permissions
 for dir_path in MEDIA_DIRS:
-    os.makedirs(dir_path, exist_ok=True)
+    try:
+        os.makedirs(dir_path, exist_ok=True)
+        # Set directory permissions (755 = rwxr-xr-x)
+        os.chmod(dir_path, 0o755)
+    except Exception as e:
+        print(f"Error creating directory {dir_path}: {str(e)}")
+
+# File upload settings
+FILE_UPLOAD_PERMISSIONS = 0o644  # rw-r--r--
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755  # rwxr-xr-x
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
 
 # Security Settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
