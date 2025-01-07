@@ -462,38 +462,49 @@ def order_detail(request, order_id):
     """Batch detay sayfası"""
     batch = get_object_or_404(BatchOrder, order_id=order_id)
     
-    # Docker ortamı kontrolü
     try:
         logger.info("\n========== PRINT IMAGE SEARCH STARTED ==========")
         logger.info(f"Batch ID: {batch.order_id}")
-        logger.info(f"MEDIA_ROOT: {django_settings.MEDIA_ROOT}")
         
         # Print klasörünü kontrol et
         try:
             print_settings = PrintImageSettings.objects.get(user=request.user)
-            print_folder = print_settings.print_folder_path
+            windows_path = print_settings.print_folder_path
             
-            if not print_folder:
+            if not windows_path:
                 logger.warning("Print folder path is empty in settings")
                 return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
+            # Windows yolunu düzelt
+            print_folder = windows_path.replace('\\', '/').replace('C:', '')
+            logger.info(f"Original Windows path: {windows_path}")
+            logger.info(f"Converted path: {print_folder}")
+            
             if not os.path.exists(print_folder):
                 logger.warning(f"Print folder does not exist: {print_folder}")
+                logger.info("Checking if folder exists in user's computer...")
+                if os.path.exists(windows_path):
+                    logger.info("Folder exists in Windows path")
+                else:
+                    logger.warning("Folder does not exist in Windows path either")
                 return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
             logger.info(f"Print folder found: {print_folder}")
             
             # Print klasöründeki tüm dosyaları listele
             all_files = []
-            for root, dirs, files in os.walk(print_folder):
-                for file in files:
-                    if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        all_files.append(os.path.join(root, file))
-            
-            logger.info(f"Total image files found in print folder: {len(all_files)}")
-            logger.info("Image files:")
-            for file in all_files:
-                logger.info(f"- {file}")
+            try:
+                for root, dirs, files in os.walk(print_folder):
+                    for file in files:
+                        if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                            all_files.append(os.path.join(root, file))
+                
+                logger.info(f"Total image files found in print folder: {len(all_files)}")
+                logger.info("Image files:")
+                for file in all_files:
+                    logger.info(f"- {file}")
+            except Exception as e:
+                logger.error(f"Error listing files: {str(e)}")
             
             # İşlenmiş SKU'ları takip et
             processed_skus = set()
@@ -514,53 +525,58 @@ def order_detail(request, order_id):
                     
                     # Print klasöründe resmi ara
                     found_match = False
-                    for root, dirs, files in os.walk(print_folder):
-                        for file in files:
-                            if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                file_name = os.path.splitext(file)[0].lower()
-                                search_sku = item.sku.lower().strip()
-                                
-                                if search_sku == file_name or file_name.startswith(f"{search_sku}-"):
-                                    source_path = os.path.join(root, file)
-                                    logger.info(f"Found matching file: {file}")
-                                    logger.info(f"Full path: {source_path}")
+                    try:
+                        for root, dirs, files in os.walk(print_folder):
+                            for file in files:
+                                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                    file_name = os.path.splitext(file)[0].lower()
+                                    search_sku = item.sku.lower().strip()
                                     
-                                    file_extension = os.path.splitext(file)[1]
-                                    target_filename = f"{item.sku}{file_extension}"
+                                    logger.info(f"Comparing file '{file_name}' with SKU '{search_sku}'")
                                     
-                                    # Hedef dizini oluştur
-                                    target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id))
-                                    os.makedirs(target_dir, mode=0o755, exist_ok=True)
-                                    
-                                    target_path = os.path.join(target_dir, target_filename)
-                                    logger.info(f"Target path: {target_path}")
-                                    
-                                    try:
-                                        # Dosyayı kopyala
-                                        shutil.copy2(source_path, target_path)
-                                        os.chmod(target_path, 0o644)
-                                        logger.info("File copied successfully")
+                                    if search_sku == file_name or file_name.startswith(f"{search_sku}-"):
+                                        source_path = os.path.join(root, file)
+                                        logger.info(f"Found matching file: {file}")
+                                        logger.info(f"Full path: {source_path}")
                                         
-                                        # Veritabanını güncelle
-                                        relative_path = os.path.join('orders', 'images', str(batch.order_id), target_filename)
+                                        file_extension = os.path.splitext(file)[1]
+                                        target_filename = f"{item.sku}{file_extension}"
                                         
-                                        # Aynı SKU'ya sahip tüm öğeleri güncelle
-                                        OrderItem.objects.filter(
-                                            order__batch=batch,
-                                            sku=item.sku
-                                        ).update(print_image=relative_path)
+                                        # Hedef dizini oluştur
+                                        target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id))
+                                        os.makedirs(target_dir, mode=0o755, exist_ok=True)
                                         
-                                        found_match = True
-                                        found_matches[item.sku] = file
-                                        logger.info("Database updated successfully")
-                                        break
+                                        target_path = os.path.join(target_dir, target_filename)
+                                        logger.info(f"Target path: {target_path}")
                                         
-                                    except Exception as e:
-                                        logger.error(f"Failed to copy file: {str(e)}")
-                                        continue
-                        
-                        if found_match:
-                            break
+                                        try:
+                                            # Dosyayı kopyala
+                                            shutil.copy2(source_path, target_path)
+                                            os.chmod(target_path, 0o644)
+                                            logger.info("File copied successfully")
+                                            
+                                            # Veritabanını güncelle
+                                            relative_path = os.path.join('orders', 'images', str(batch.order_id), target_filename)
+                                            
+                                            # Aynı SKU'ya sahip tüm öğeleri güncelle
+                                            OrderItem.objects.filter(
+                                                order__batch=batch,
+                                                sku=item.sku
+                                            ).update(print_image=relative_path)
+                                            
+                                            found_match = True
+                                            found_matches[item.sku] = file
+                                            logger.info("Database updated successfully")
+                                            break
+                                            
+                                        except Exception as e:
+                                            logger.error(f"Failed to copy file: {str(e)}")
+                                            continue
+                            
+                            if found_match:
+                                break
+                    except Exception as e:
+                        logger.error(f"Error searching for SKU {item.sku}: {str(e)}")
                     
                     if not found_match:
                         not_found_skus.add(item.sku)
