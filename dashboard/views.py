@@ -22,8 +22,41 @@ from .models import BatchOrder, OrderDetail, OrderItem, PrintImageSettings
 from .utils import generate_order_id, extract_order_data
 from django.core.serializers.json import DjangoJSONEncoder
 from datetime import date, datetime
+import shutil
 
+# Configure logging
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# Create file handler
+try:
+    log_dir = '/var/log'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+    
+    log_file = os.path.join(log_dir, 'django.log')
+    if not os.path.exists(log_file):
+        open(log_file, 'a').close()
+        os.chmod(log_file, 0o666)
+    
+    file_handler = logging.FileHandler(log_file)
+    file_handler.setLevel(logging.INFO)
+    
+    # Create console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    
+    # Create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    # Add handlers to logger
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+except Exception as e:
+    print(f"Error configuring logger: {str(e)}")
+
 User = get_user_model()
 
 @login_required
@@ -479,45 +512,41 @@ def order_detail(request, order_id):
                                     file_extension = os.path.splitext(file)[1]
                                     target_filename = f"{item.sku}{file_extension}"
                                     
-                                    # Create target directory
+                                    # Create target directory structure
                                     target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
-                                    os.makedirs(target_dir, exist_ok=True)
-                                    logger.info(f"Created directory: {target_dir}")
-                                    
-                                    # Set file permissions for target directory
                                     try:
+                                        os.makedirs(target_dir, exist_ok=True)
                                         os.chmod(target_dir, 0o755)
-                                        logger.info(f"Set permissions for directory: {target_dir}")
+                                        logger.info(f"Created directory with permissions: {target_dir}")
                                     except Exception as e:
-                                        logger.error(f"Error setting directory permissions: {str(e)}")
-                                    
-                                    # Copy file to target directory
-                                    import shutil
-                                    target_path = os.path.join(target_dir, target_filename)
-                                    logger.info(f"Target path: {target_path}")
-                                    
-                                    try:
-                                        shutil.copy2(source_path, target_path)
-                                        # Set file permissions
-                                        os.chmod(target_path, 0o644)
-                                        logger.info(f"File copied and permissions set: {target_path}")
-                                    except Exception as e:
-                                        logger.error(f"Error copying file or setting permissions: {str(e)}")
+                                        logger.error(f"Error creating directory {target_dir}: {str(e)}")
                                         continue
                                     
-                                    # Set relative path for database
-                                    relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', target_filename)
-                                    logger.info(f"Database path: {relative_path}")
-                                    
-                                    # Update all items with the same SKU
-                                    same_sku_items = OrderItem.objects.filter(
-                                        order__batch=batch,
-                                        sku=item.sku
-                                    )
-                                    for same_item in same_sku_items:
-                                        same_item.print_image = relative_path
-                                        same_item.save()
-                                        logger.info(f"Updated item {same_item.id} with path: {relative_path}")
+                                    # Copy file to target directory
+                                    target_path = os.path.join(target_dir, target_filename)
+                                    try:
+                                        # Önce dosyayı kopyala
+                                        shutil.copy2(source_path, target_path)
+                                        # Sonra izinleri ayarla
+                                        os.chmod(target_path, 0o644)
+                                        logger.info(f"File copied and permissions set: {target_path}")
+                                        
+                                        # Set relative path for database
+                                        relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', target_filename)
+                                        
+                                        # Update all items with the same SKU
+                                        same_sku_items = OrderItem.objects.filter(
+                                            order__batch=batch,
+                                            sku=item.sku
+                                        )
+                                        for same_item in same_sku_items:
+                                            same_item.print_image = relative_path
+                                            same_item.save()
+                                            logger.info(f"Updated item {same_item.id} with path: {relative_path}")
+                                        
+                                    except Exception as e:
+                                        logger.error(f"Error copying file {source_path} to {target_path}: {str(e)}")
+                                        continue
                                     
                                     break
     except PrintImageSettings.DoesNotExist:

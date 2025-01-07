@@ -290,20 +290,33 @@ if DEBUG:
     LOGGING = {
         'version': 1,
         'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '[{levelname}] {asctime} {module} {message}',
+                'style': '{',
+            },
+        },
         'handlers': {
             'console': {
                 'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
             },
-        },
-        'root': {
-            'handlers': ['console'],
-            'level': 'INFO',
+            'file': {
+                'class': 'logging.FileHandler',
+                'filename': os.path.join(BASE_DIR, 'django.log'),
+                'formatter': 'verbose',
+            },
         },
         'loggers': {
             'django': {
-                'handlers': ['console'],
+                'handlers': ['console', 'file'],
                 'level': 'INFO',
-                'propagate': False,
+                'propagate': True,
+            },
+            'dashboard': {
+                'handlers': ['console', 'file'],
+                'level': 'INFO',
+                'propagate': True,
             },
         },
     }
@@ -329,15 +342,16 @@ else:
                 'formatter': 'verbose',
             },
         },
-        'root': {
-            'handlers': ['console', 'file'],
-            'level': 'INFO',
-        },
         'loggers': {
             'django': {
                 'handlers': ['console', 'file'],
                 'level': 'INFO',
-                'propagate': False,
+                'propagate': True,
+            },
+            'dashboard': {
+                'handlers': ['console', 'file'],
+                'level': 'INFO',
+                'propagate': True,
             },
         },
     }
