@@ -2,7 +2,7 @@ import os
 import PyPDF2
 import re
 from datetime import datetime
-from django.conf import settings
+from django.conf import settings as django_settings
 import json
 import requests
 from urllib.parse import urlparse
@@ -72,17 +72,19 @@ def save_product_image(image_url, order_id, sku):
             
         # Dosya adını oluştur
         file_name = f"{order_id}_{sku}.jpg"
-        relative_path = os.path.join('orders', 'images', str(order_id), file_name)
+        relative_path = os.path.join('orders', 'images', str(order_id), 'product_images', file_name)
         absolute_path = os.path.join(settings.MEDIA_ROOT, relative_path)
         
         # Dizin yapısını oluştur
         os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
+        print(f"Product image dizini oluşturuldu: {os.path.dirname(absolute_path)}")
         
         # Görseli indir
         response = requests.get(image_url)
         if response.status_code == 200:
             with open(absolute_path, 'wb') as f:
                 f.write(response.content)
+            print(f"Product image kaydedildi: {absolute_path}")
             return relative_path
             
         return ''
@@ -221,17 +223,19 @@ def extract_images_from_page(page, batch_id):
                         # Tüm resimleri jpg olarak kaydet
                         extension = '.jpg'
                         
-                        # Yeni dosya adı formatı: media/orders/images/batch_id/1.jpg
-                        relative_path = os.path.join('orders', 'images', str(batch_id), f'{image_count}{extension}')
+                        # Yeni dosya adı formatı: orders/images/batch_id/print_images/1.jpg
+                        relative_path = os.path.join('orders', 'images', str(batch_id), 'print_images', f'{image_count}{extension}')
                         absolute_path = os.path.join(settings.MEDIA_ROOT, relative_path)
                         
                         # Dizin yapısını oluştur
                         os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
+                        print(f"Print image dizini oluşturuldu: {os.path.dirname(absolute_path)}")
                         
                         # Resmi kaydet
                         image_data = image_data.get_data()
                         with open(absolute_path, 'wb') as img_file:
                             img_file.write(image_data)
+                        print(f"Print image kaydedildi: {absolute_path}")
                         
                         images.append(relative_path)
                         image_count += 1

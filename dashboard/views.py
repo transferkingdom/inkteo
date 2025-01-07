@@ -480,7 +480,7 @@ def order_detail(request, order_id):
                                     target_filename = f"{item.sku}{file_extension}"
                                     
                                     # Create target directory
-                                    target_dir = os.path.join('media', 'orders', 'images', str(batch.order_id), 'print_images')
+                                    target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
                                     os.makedirs(target_dir, exist_ok=True)
                                     logger.debug(f"Created directory: {target_dir}")
                                     
@@ -493,7 +493,7 @@ def order_detail(request, order_id):
                                     logger.debug("File copied successfully")
                                     
                                     # Set relative path for database
-                                    relative_path = f"orders/images/{batch.order_id}/print_images/{target_filename}"
+                                    relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', target_filename)
                                     logger.debug(f"Database path: {relative_path}")
                                     
                                     # Update all items with the same SKU
