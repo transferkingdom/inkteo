@@ -487,18 +487,35 @@ def order_detail(request, order_id):
                 
                 # Windows'tan resimleri kopyala
                 try:
-                    if os.path.exists(windows_path):
-                        for root, dirs, files in os.walk(windows_path):
+                    # Windows yolunu düzelt
+                    source_path = windows_path.replace('\\', '/').replace('C:', '/mnt/c')
+                    logger.info(f"Converted Windows path: {source_path}")
+                    
+                    if os.path.exists(source_path):
+                        logger.info(f"Source path exists: {source_path}")
+                        logger.info(f"Source path contents: {os.listdir(source_path)}")
+                        
+                        for root, dirs, files in os.walk(source_path):
                             for file in files:
                                 if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                    source = os.path.join(root, file)
-                                    target = os.path.join(print_folder, file)
-                                    if not os.path.exists(target):
-                                        shutil.copy2(source, target)
-                                        os.chmod(target, 0o644)
-                                        logger.info(f"Copied {file} to Docker volume")
+                                    source_file = os.path.join(root, file)
+                                    target_file = os.path.join(print_folder, file)
+                                    
+                                    try:
+                                        if not os.path.exists(target_file):
+                                            logger.info(f"Copying {source_file} to {target_file}")
+                                            shutil.copy2(source_file, target_file)
+                                            os.chmod(target_file, 0o644)
+                                            logger.info(f"Successfully copied {file}")
+                                    except Exception as e:
+                                        logger.error(f"Error copying {file}: {str(e)}")
+                                        logger.error(f"Full error: {traceback.format_exc()}")
+                    else:
+                        logger.warning(f"Source path does not exist: {source_path}")
+                        
                 except Exception as e:
                     logger.error(f"Error copying files to Docker volume: {str(e)}")
+                    logger.error(f"Full error: {traceback.format_exc()}")
             else:  # Local ortam
                 print_folder = windows_path
                 logger.info(f"Using local path: {print_folder}")
@@ -509,6 +526,7 @@ def order_detail(request, order_id):
                 return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
             logger.info(f"Print folder found: {print_folder}")
+            logger.info(f"Print folder contents: {os.listdir(print_folder)}")
             
             # Print klasöründeki tüm dosyaları listele
             all_files = []
