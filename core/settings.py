@@ -162,7 +162,7 @@ MEDIA_URL = '/media/'
 if DEBUG:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 else:
-    MEDIA_ROOT = '/app/media'  # Docker container içindeki yol
+    MEDIA_ROOT = '/var/www/media'  # Kalıcı volume yolu
 
 # Ensure media directories exist in both environments
 MEDIA_DIRS = [
