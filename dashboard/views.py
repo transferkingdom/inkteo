@@ -477,35 +477,44 @@ def order_detail(request, order_id):
             
             # Ortama göre yolu ayarla
             if not django_settings.DEBUG:  # Production ortamı
-                # Olası mount noktalarını kontrol et
-                mount_points = ['/mnt/c', '/c']
+                # Windows yolunu Docker yoluna çevir
                 docker_path = None
                 
-                for mount in mount_points:
-                    test_path = os.path.join(mount, print_folder[3:].replace('\\', '/'))
-                    logger.info(f"Checking mount point: {test_path}")
-                    if os.path.exists(mount):
-                        docker_path = test_path
-                        logger.info(f"Found valid mount point: {mount}")
-                        break
+                # Önce orijinal Windows yolunu kontrol et
+                if os.path.exists(print_folder):
+                    docker_path = print_folder
+                    logger.info(f"Using original path: {docker_path}")
+                else:
+                    # Mount noktalarını kontrol et
+                    mount_points = ['/mnt/c', '/c']
+                    windows_path = print_folder.replace('\\', '/').replace('C:', '')
+                    
+                    for mount in mount_points:
+                        test_path = os.path.join(mount, windows_path.lstrip('/'))
+                        logger.info(f"Checking mount point: {test_path}")
+                        if os.path.exists(mount):
+                            docker_path = test_path
+                            logger.info(f"Found valid mount point: {mount}")
+                            break
+                    
+                    if not docker_path:
+                        # Alternatif yol dene
+                        alt_path = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
+                        if os.path.exists(alt_path):
+                            docker_path = alt_path
+                            logger.info(f"Using alternative path: {docker_path}")
                 
                 if docker_path:
                     print_folder = docker_path
-                    logger.info(f"Using Docker path: {print_folder}")
+                    logger.info(f"Final Docker path: {print_folder}")
                 else:
-                    logger.warning("No valid mount point found for Windows drive")
-                    # Alternatif yol dene
-                    alt_path = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
-                    if os.path.exists(alt_path):
-                        print_folder = alt_path
-                        logger.info(f"Using alternative path: {print_folder}")
+                    logger.warning(f"Print folder does not exist: {print_folder}")
+                    return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             else:  # Local ortam
                 logger.info(f"Local path: {print_folder}")
-            
-            # Dizin varlığını kontrol et
-            if not os.path.exists(print_folder):
-                logger.warning(f"Print folder does not exist: {print_folder}")
-                return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
+                if not os.path.exists(print_folder):
+                    logger.warning(f"Print folder does not exist: {print_folder}")
+                    return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
             logger.info(f"Print folder found: {print_folder}")
             
