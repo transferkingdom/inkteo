@@ -158,7 +158,7 @@ else:
     MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
 
 # Security Settings
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
 WHITENOISE_ALLOW_ALL_ORIGINS = True
@@ -279,7 +279,7 @@ if DEBUG:
                 'level': 'INFO',
                 'propagate': False,
             },
-            'dashboard': {
+            'whitenoise': {
                 'handlers': ['console'],
                 'level': 'DEBUG',
                 'propagate': False,
@@ -318,7 +318,7 @@ else:
                 'level': 'INFO',
                 'propagate': False,
             },
-            'dashboard': {
+            'whitenoise': {
                 'handlers': ['console', 'file'],
                 'level': 'DEBUG',
                 'propagate': False,
