@@ -21,8 +21,11 @@ from django.core.exceptions import ValidationError
 from .models import BatchOrder, OrderDetail, OrderItem, PrintImageSettings
 from .utils import generate_order_id, extract_order_data
 from django.core.serializers.json import DjangoJSONEncoder
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import shutil
+from requests_oauthlib import OAuth2Session
+import dropbox
+from django.urls import reverse
 
 # Configure logging
 logger = logging.getLogger('dashboard')
@@ -73,10 +76,11 @@ def settings_view(request):
     try:
         print_settings = PrintImageSettings.objects.get(user=request.user)
     except PrintImageSettings.DoesNotExist:
-        print_settings = None
+        print_settings = PrintImageSettings.objects.create(user=request.user)
     
     context = {
-        'print_settings': print_settings
+        'print_settings': print_settings,
+        'active_tab': 'settings'
     }
     
     return render(request, 'dashboard/settings.html', context)
@@ -738,3 +742,83 @@ def find_print_image(sku):
             if sku in file:
                 return os.path.join(root, file)
     return None
+
+@login_required
+def dropbox_auth(request):
+    """Dropbox yetkilendirme başlatma view'ı"""
+    try:
+        # Dropbox OAuth2 flow başlat
+        oauth2_session = OAuth2Session(
+            django_settings.DROPBOX_APP_KEY,
+            redirect_uri=django_settings.DROPBOX_OAUTH_CALLBACK_URL,
+            scope=['files.content.read', 'files.content.write']
+        )
+        
+        authorization_url, state = oauth2_session.authorization_url(
+            'https://www.dropbox.com/oauth2/authorize'
+        )
+        
+        # State'i session'da sakla
+        request.session['dropbox_oauth_state'] = state
+        
+        return redirect(authorization_url)
+        
+    except Exception as e:
+        messages.error(request, f'Dropbox bağlantısı sırasında bir hata oluştu: {str(e)}')
+        return redirect('dashboard:settings')
+
+@login_required
+def dropbox_callback(request):
+    """Dropbox callback view'ı"""
+    try:
+        code = request.GET.get('code')
+        state = request.GET.get('state')
+        stored_state = request.session.get('dropbox_oauth_state')
+        
+        if not code:
+            messages.error(request, 'Dropbox yetkilendirme kodu alınamadı.')
+            return redirect('dashboard:settings')
+            
+        if state != stored_state:
+            messages.error(request, 'Güvenlik doğrulaması başarısız oldu.')
+            return redirect('dashboard:settings')
+            
+        # Token al
+        oauth2_session = OAuth2Session(
+            django_settings.DROPBOX_APP_KEY,
+            redirect_uri=django_settings.DROPBOX_OAUTH_CALLBACK_URL
+        )
+        
+        token = oauth2_session.fetch_token(
+            'https://api.dropbox.com/oauth2/token',
+            client_secret=django_settings.DROPBOX_APP_SECRET,
+            code=code
+        )
+        
+        # Token'ı kaydet
+        print_settings = PrintImageSettings.objects.get(user=request.user)
+        print_settings.dropbox_access_token = token['access_token']
+        print_settings.use_dropbox = True
+        print_settings.save()
+        
+        messages.success(request, 'Dropbox bağlantısı başarıyla kuruldu.')
+        return redirect('dashboard:settings')
+        
+    except Exception as e:
+        messages.error(request, f'Dropbox bağlantısı sırasında bir hata oluştu: {str(e)}')
+        return redirect('dashboard:settings')
+
+@login_required
+def dropbox_disconnect(request):
+    """Dropbox bağlantısını kesme view'ı"""
+    try:
+        print_settings = PrintImageSettings.objects.get(user=request.user)
+        print_settings.dropbox_access_token = ''
+        print_settings.use_dropbox = False
+        print_settings.save()
+        
+        messages.success(request, 'Dropbox bağlantısı başarıyla kesildi.')
+    except Exception as e:
+        messages.error(request, f'Dropbox bağlantısını keserken bir hata oluştu: {str(e)}')
+    
+    return redirect('dashboard:settings')

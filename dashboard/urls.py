@@ -14,4 +14,7 @@ urlpatterns = [
     path('orders/upload/', views.upload_orders, name='upload_orders'),
     path('orders/<str:order_id>/', views.order_detail, name='order_detail'),
     path('settings/select-print-folder/', views.select_print_folder, name='select_print_folder'),
+    path('settings/dropbox/auth/', views.dropbox_auth, name='dropbox_auth'),
+    path('settings/dropbox/callback/', views.dropbox_callback, name='dropbox_callback'),
+    path('settings/dropbox/disconnect/', views.dropbox_disconnect, name='dropbox_disconnect'),
 ]

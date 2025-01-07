@@ -373,3 +373,11 @@ ACCOUNT_PASSWORD_RESET_VERIFY_EMAIL = False
 ORDERS_PDF_DIR = 'orders/pdfs/%Y/%m/%d'
 ORDERS_IMAGES_DIR = 'orders/images'
 ORDERS_RAW_DATA_DIR = 'orders/raw_data/%Y/%m/%d'
+
+# Dropbox API Settings
+DROPBOX_APP_KEY = os.environ.get('DROPBOX_APP_KEY')
+DROPBOX_APP_SECRET = os.environ.get('DROPBOX_APP_SECRET')
+if DEBUG:
+    DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL_LOCAL')
+else:
+    DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL')
