@@ -464,25 +464,9 @@ def order_detail(request, order_id):
     
     # Docker ortamı kontrolü
     try:
-        print("\n[DEBUG] ===== DOCKER ENVIRONMENT CHECK =====")
-        print(f"[DEBUG] MEDIA_ROOT: {django_settings.MEDIA_ROOT}")
-        print(f"[DEBUG] Current working directory: {os.getcwd()}")
-        
-        # Media dizinlerini kontrol et ve oluştur
-        media_dirs = [
-            os.path.join(django_settings.MEDIA_ROOT, 'orders'),
-            os.path.join(django_settings.MEDIA_ROOT, 'orders/images'),
-            os.path.join(django_settings.MEDIA_ROOT, 'orders/pdfs'),
-        ]
-        
-        for dir_path in media_dirs:
-            if not os.path.exists(dir_path):
-                os.makedirs(dir_path, mode=0o755, exist_ok=True)
-                print(f"[DEBUG] Created directory: {dir_path}")
-            
-            # İzinleri kontrol et
-            current_mode = oct(os.stat(dir_path).st_mode)[-3:]
-            print(f"[DEBUG] {dir_path} permissions: {current_mode}")
+        logger.info("\n========== PRINT IMAGE SEARCH STARTED ==========")
+        logger.info(f"Batch ID: {batch.order_id}")
+        logger.info(f"MEDIA_ROOT: {django_settings.MEDIA_ROOT}")
         
         # Print klasörünü kontrol et
         try:
@@ -490,29 +474,43 @@ def order_detail(request, order_id):
             print_folder = print_settings.print_folder_path
             
             if not print_folder:
-                print("[WARNING] Print folder path is empty")
+                logger.warning("Print folder path is empty in settings")
                 return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
             if not os.path.exists(print_folder):
-                print(f"[WARNING] Print folder does not exist: {print_folder}")
+                logger.warning(f"Print folder does not exist: {print_folder}")
                 return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
-            print(f"[DEBUG] Print folder exists: {print_folder}")
-            print(f"[DEBUG] Print folder contents: {os.listdir(print_folder)}")
+            logger.info(f"Print folder found: {print_folder}")
+            
+            # Print klasöründeki tüm dosyaları listele
+            all_files = []
+            for root, dirs, files in os.walk(print_folder):
+                for file in files:
+                    if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                        all_files.append(os.path.join(root, file))
+            
+            logger.info(f"Total image files found in print folder: {len(all_files)}")
+            logger.info("Image files:")
+            for file in all_files:
+                logger.info(f"- {file}")
             
             # İşlenmiş SKU'ları takip et
             processed_skus = set()
+            not_found_skus = set()
+            found_matches = {}
             
             # Siparişleri işle
+            logger.info("\n---------- PROCESSING ORDERS ----------")
             for order in batch.orders.all():
-                print(f"\n[DEBUG] Processing order: {order.etsy_order_number}")
+                logger.info(f"\nProcessing order: {order.etsy_order_number}")
                 
                 for item in order.items.all():
                     if item.sku in processed_skus:
                         continue
                     
                     processed_skus.add(item.sku)
-                    print(f"[DEBUG] Processing SKU: {item.sku}")
+                    logger.info(f"\nLooking for SKU: {item.sku}")
                     
                     # Print klasöründe resmi ara
                     found_match = False
@@ -524,6 +522,9 @@ def order_detail(request, order_id):
                                 
                                 if search_sku == file_name or file_name.startswith(f"{search_sku}-"):
                                     source_path = os.path.join(root, file)
+                                    logger.info(f"Found matching file: {file}")
+                                    logger.info(f"Full path: {source_path}")
+                                    
                                     file_extension = os.path.splitext(file)[1]
                                     target_filename = f"{item.sku}{file_extension}"
                                     
@@ -532,12 +533,13 @@ def order_detail(request, order_id):
                                     os.makedirs(target_dir, mode=0o755, exist_ok=True)
                                     
                                     target_path = os.path.join(target_dir, target_filename)
-                                    print(f"[DEBUG] Copying from {source_path} to {target_path}")
+                                    logger.info(f"Target path: {target_path}")
                                     
                                     try:
                                         # Dosyayı kopyala
                                         shutil.copy2(source_path, target_path)
                                         os.chmod(target_path, 0o644)
+                                        logger.info("File copied successfully")
                                         
                                         # Veritabanını güncelle
                                         relative_path = os.path.join('orders', 'images', str(batch.order_id), target_filename)
@@ -549,26 +551,41 @@ def order_detail(request, order_id):
                                         ).update(print_image=relative_path)
                                         
                                         found_match = True
-                                        print(f"[DEBUG] Successfully copied and updated database for SKU: {item.sku}")
+                                        found_matches[item.sku] = file
+                                        logger.info("Database updated successfully")
                                         break
                                         
                                     except Exception as e:
-                                        print(f"[ERROR] Failed to copy file: {str(e)}")
+                                        logger.error(f"Failed to copy file: {str(e)}")
                                         continue
                         
                         if found_match:
                             break
                     
                     if not found_match:
-                        print(f"[WARNING] No matching file found for SKU: {item.sku}")
+                        not_found_skus.add(item.sku)
+                        logger.warning(f"No matching file found for SKU: {item.sku}")
+            
+            # Özet rapor
+            logger.info("\n========== PRINT IMAGE SEARCH SUMMARY ==========")
+            logger.info(f"Total SKUs processed: {len(processed_skus)}")
+            logger.info(f"SKUs with matching files: {len(found_matches)}")
+            logger.info("Matched SKUs:")
+            for sku, file in found_matches.items():
+                logger.info(f"- SKU: {sku} -> File: {file}")
+            
+            logger.info(f"\nSKUs with no matching files: {len(not_found_skus)}")
+            logger.info("Missing SKUs:")
+            for sku in not_found_skus:
+                logger.info(f"- {sku}")
             
         except PrintImageSettings.DoesNotExist:
-            print("[WARNING] Print settings not found")
+            logger.warning("Print settings not found for user")
             pass
             
     except Exception as e:
-        print(f"[ERROR] Error in order detail: {str(e)}")
-        print(f"[ERROR] Traceback: {traceback.format_exc()}")
+        logger.error(f"Error in order detail: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
     
     context = {
         'batch': batch,
