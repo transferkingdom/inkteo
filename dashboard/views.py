@@ -448,10 +448,10 @@ def order_detail(request, order_id):
         print_settings = PrintImageSettings.objects.get(user=request.user)
         print_folder = print_settings.print_folder_path
         
-        logger.debug(f"Print folder path: {print_folder}")
+        logger.info(f"Print folder path: {print_folder}")
         
         if print_folder and os.path.exists(print_folder):
-            logger.debug("Print folder exists")
+            logger.info("Print folder exists")
             # Create a set to track processed SKUs
             processed_skus = set()
             
@@ -462,11 +462,11 @@ def order_detail(request, order_id):
                         continue
                         
                     processed_skus.add(item.sku)
-                    logger.debug(f"Processing SKU: {item.sku}")
+                    logger.info(f"Processing SKU: {item.sku}")
                     
                     # Search in print folder and subfolders
                     for root, dirs, files in os.walk(print_folder):
-                        logger.debug(f"Searching in directory: {root}")
+                        logger.info(f"Searching in directory: {root}")
                         
                         for file in files:
                             if file.lower().endswith(('.png', '.jpg', '.jpeg')):
@@ -482,19 +482,32 @@ def order_detail(request, order_id):
                                     # Create target directory
                                     target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
                                     os.makedirs(target_dir, exist_ok=True)
-                                    logger.debug(f"Created directory: {target_dir}")
+                                    logger.info(f"Created directory: {target_dir}")
+                                    
+                                    # Set file permissions for target directory
+                                    try:
+                                        os.chmod(target_dir, 0o755)
+                                        logger.info(f"Set permissions for directory: {target_dir}")
+                                    except Exception as e:
+                                        logger.error(f"Error setting directory permissions: {str(e)}")
                                     
                                     # Copy file to target directory
                                     import shutil
                                     target_path = os.path.join(target_dir, target_filename)
-                                    logger.debug(f"Target path: {target_path}")
+                                    logger.info(f"Target path: {target_path}")
                                     
-                                    shutil.copy2(source_path, target_path)
-                                    logger.debug("File copied successfully")
+                                    try:
+                                        shutil.copy2(source_path, target_path)
+                                        # Set file permissions
+                                        os.chmod(target_path, 0o644)
+                                        logger.info(f"File copied and permissions set: {target_path}")
+                                    except Exception as e:
+                                        logger.error(f"Error copying file or setting permissions: {str(e)}")
+                                        continue
                                     
                                     # Set relative path for database
                                     relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', target_filename)
-                                    logger.debug(f"Database path: {relative_path}")
+                                    logger.info(f"Database path: {relative_path}")
                                     
                                     # Update all items with the same SKU
                                     same_sku_items = OrderItem.objects.filter(
@@ -504,16 +517,15 @@ def order_detail(request, order_id):
                                     for same_item in same_sku_items:
                                         same_item.print_image = relative_path
                                         same_item.save()
-                                        logger.debug(f"Updated item {same_item.id}")
+                                        logger.info(f"Updated item {same_item.id} with path: {relative_path}")
                                     
                                     break
     except PrintImageSettings.DoesNotExist:
-        logger.debug("PrintImageSettings not found")
+        logger.warning("PrintImageSettings not found")
         pass
     except Exception as e:
         logger.error(f"Error searching print images: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(traceback.format_exc())
     
     context = {
         'batch': batch,

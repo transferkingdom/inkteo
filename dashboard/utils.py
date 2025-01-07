@@ -225,23 +225,38 @@ def extract_images_from_page(page, batch_id):
                         
                         # Yeni dosya adı formatı: orders/images/batch_id/print_images/1.jpg
                         relative_path = os.path.join('orders', 'images', str(batch_id), 'print_images', f'{image_count}{extension}')
-                        absolute_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+                        absolute_path = os.path.join(django_settings.MEDIA_ROOT, relative_path)
                         
                         # Dizin yapısını oluştur
-                        os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
-                        print(f"Print image dizini oluşturuldu: {os.path.dirname(absolute_path)}")
+                        target_dir = os.path.dirname(absolute_path)
+                        os.makedirs(target_dir, exist_ok=True)
+                        print(f"Print image dizini oluşturuldu: {target_dir}")
+                        
+                        # Set directory permissions
+                        try:
+                            os.chmod(target_dir, 0o755)
+                            print(f"Dizin izinleri ayarlandı: {target_dir}")
+                        except Exception as e:
+                            print(f"Dizin izinleri ayarlanamadı: {str(e)}")
                         
                         # Resmi kaydet
-                        image_data = image_data.get_data()
-                        with open(absolute_path, 'wb') as img_file:
-                            img_file.write(image_data)
-                        print(f"Print image kaydedildi: {absolute_path}")
-                        
-                        images.append(relative_path)
-                        image_count += 1
+                        try:
+                            image_data = image_data.get_data()
+                            with open(absolute_path, 'wb') as img_file:
+                                img_file.write(image_data)
+                            
+                            # Set file permissions
+                            os.chmod(absolute_path, 0o644)
+                            print(f"Print image kaydedildi ve izinler ayarlandı: {absolute_path}")
+                            
+                            images.append(relative_path)
+                            image_count += 1
+                        except Exception as e:
+                            print(f"Resim kaydetme veya izin ayarlama hatası: {str(e)}")
+                            continue
                         
                     except Exception as e:
-                        print(f"Resim kaydetme hatası: {str(e)}")
+                        print(f"Resim işleme hatası: {str(e)}")
                         continue
         
         return images
