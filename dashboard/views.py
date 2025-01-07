@@ -468,6 +468,7 @@ def order_detail(request, order_id):
         print_folder = print_settings.print_folder_path
         
         print(f"[DEBUG] Print folder path: {print_folder}")
+        print(f"[DEBUG] MEDIA_ROOT: {django_settings.MEDIA_ROOT}")
         
         if print_folder and os.path.exists(print_folder):
             print("[DEBUG] Print folder exists")
@@ -507,6 +508,11 @@ def order_detail(request, order_id):
                                     target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
                                     try:
                                         print(f"[DEBUG] Creating directory: {target_dir}")
+                                        # Önce üst dizinleri oluştur
+                                        os.makedirs(os.path.dirname(target_dir), exist_ok=True)
+                                        os.chmod(os.path.dirname(target_dir), 0o755)
+                                        
+                                        # Sonra hedef dizini oluştur
                                         os.makedirs(target_dir, exist_ok=True)
                                         os.chmod(target_dir, 0o755)
                                         print(f"[DEBUG] Directory created with permissions: {target_dir}")
@@ -516,15 +522,19 @@ def order_detail(request, order_id):
                                         
                                     except Exception as e:
                                         print(f"[ERROR] Error creating directory {target_dir}: {str(e)}")
+                                        print(f"[ERROR] Full traceback: {traceback.format_exc()}")
                                         continue
                                     
                                     # Copy file to target directory
                                     target_path = os.path.join(target_dir, target_filename)
                                     try:
                                         print(f"[DEBUG] Copying file from {source_path} to {target_path}")
-                                        # Önce dosyayı kopyala
-                                        shutil.copy2(source_path, target_path)
-                                        # Sonra izinleri ayarla
+                                        
+                                        # Dosyayı kopyala
+                                        with open(source_path, 'rb') as src, open(target_path, 'wb') as dst:
+                                            dst.write(src.read())
+                                        
+                                        # İzinleri ayarla
                                         os.chmod(target_path, 0o644)
                                         print(f"[DEBUG] File copied and permissions set: {target_path}")
                                         
