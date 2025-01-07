@@ -16,7 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'TKInkteo3506')
 
 # Debug settings
-DEBUG = True  # Geçici olarak True yapıyoruz
+DEBUG = False  # Production modu
 
 # Base URL Settings
 BASE_URL = os.getenv('BASE_URL', 'https://inkteo-inkteo.7r1maa.easypanel.host')
