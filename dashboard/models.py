@@ -21,11 +21,16 @@ class SearchPattern(models.Model):
     class Meta:
         ordering = ['pattern_type', 'pattern']
 
+def pdf_file_upload_path(instance, filename):
+    """PDF dosyası için upload yolunu belirle"""
+    # Create path: orders/pdfs/BATCH_ID/filename
+    return os.path.join('orders', 'pdfs', str(instance.order_id), filename)
+
 class BatchOrder(models.Model):
     """Batch order model for bulk order uploads"""
     order_id = models.CharField(max_length=50, unique=True)  # e.g. 1000-20240321153000
     upload_date = models.DateTimeField(auto_now_add=True)
-    pdf_file = models.FileField(upload_to='orders/pdfs/%Y/%m/%d/')
+    pdf_file = models.FileField(upload_to=pdf_file_upload_path)
     total_orders = models.IntegerField(default=0)
     total_items = models.IntegerField(default=0)
     status = models.CharField(

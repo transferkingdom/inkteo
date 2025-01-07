@@ -325,14 +325,29 @@ def upload_orders(request):
             # Create new batch order
             batch = BatchOrder.objects.create(
                 order_id=generate_order_id(),
-                pdf_file=pdf_file,
                 status='processing'
             )
             print(f"Created batch order: {batch.order_id}")
 
+            # PDF dosyasını kaydet
+            pdf_path = os.path.join('orders', 'pdfs', str(batch.order_id), pdf_file.name)
+            full_path = os.path.join(settings.MEDIA_ROOT, pdf_path)
+            
+            # Dizin yapısını oluştur
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+            
+            # Dosyayı kaydet
+            with open(full_path, 'wb+') as destination:
+                for chunk in pdf_file.chunks():
+                    destination.write(chunk)
+            
+            # PDF dosya yolunu BatchOrder'a kaydet
+            batch.pdf_file = pdf_path
+            batch.save()
+
             try:
                 # Extract data from PDF
-                orders_data = extract_order_data(pdf_file)
+                orders_data = extract_order_data(full_path)
                 print(f"Extracted {len(orders_data)} orders from PDF")
                 
                 # Save raw data - convert datetime objects to string

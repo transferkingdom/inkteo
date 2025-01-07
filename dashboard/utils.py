@@ -72,13 +72,7 @@ def save_product_image(image_url, order_id, sku):
             
         # Dosya adını oluştur
         file_name = f"{order_id}_{sku}.jpg"
-        today = datetime.now()
-        relative_path = os.path.join('orders/images', 
-                                   str(today.year),
-                                   str(today.month),
-                                   str(today.day),
-                                   file_name)
-        
+        relative_path = os.path.join('orders', 'images', str(order_id), file_name)
         absolute_path = os.path.join(settings.MEDIA_ROOT, relative_path)
         
         # Dizin yapısını oluştur

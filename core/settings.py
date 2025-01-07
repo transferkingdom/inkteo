@@ -162,7 +162,15 @@ MEDIA_URL = '/media/'
 if DEBUG:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 else:
-    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
+    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/code/media'
+    # Ensure media directories exist
+    MEDIA_DIRS = [
+        os.path.join(MEDIA_ROOT, 'orders/pdfs'),
+        os.path.join(MEDIA_ROOT, 'orders/images'),
+        os.path.join(MEDIA_ROOT, 'orders/raw_data')
+    ]
+    for dir_path in MEDIA_DIRS:
+        os.makedirs(dir_path, exist_ok=True)
 
 # Security Settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -327,5 +335,5 @@ ACCOUNT_PASSWORD_RESET_VERIFY_EMAIL = False
 
 # Orders specific settings
 ORDERS_PDF_DIR = 'orders/pdfs/%Y/%m/%d'
-ORDERS_IMAGES_DIR = 'orders/images/%Y/%m/%d'
+ORDERS_IMAGES_DIR = 'orders/images'
 ORDERS_RAW_DATA_DIR = 'orders/raw_data/%Y/%m/%d'
