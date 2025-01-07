@@ -469,24 +469,22 @@ def order_detail(request, order_id):
         # Print klasörünü kontrol et
         try:
             print_settings = PrintImageSettings.objects.get(user=request.user)
-            windows_path = print_settings.print_folder_path
+            print_folder = print_settings.print_folder_path
             
-            if not windows_path:
+            if not print_folder:
                 logger.warning("Print folder path is empty in settings")
                 return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
-            # Windows yolunu düzelt
-            print_folder = windows_path.replace('\\', '/').replace('C:', '')
-            logger.info(f"Original Windows path: {windows_path}")
-            logger.info(f"Converted path: {print_folder}")
+            # Ortama göre yolu ayarla
+            if not django_settings.DEBUG:  # Production ortamı
+                print_folder = os.path.join('/mnt/c', print_folder[3:].replace('\\', '/'))
+                logger.info(f"Production path: {print_folder}")
+            else:  # Local ortam
+                logger.info(f"Local path: {print_folder}")
             
+            # Dizin varlığını kontrol et
             if not os.path.exists(print_folder):
                 logger.warning(f"Print folder does not exist: {print_folder}")
-                logger.info("Checking if folder exists in user's computer...")
-                if os.path.exists(windows_path):
-                    logger.info("Folder exists in Windows path")
-                else:
-                    logger.warning("Folder does not exist in Windows path either")
                 return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
             logger.info(f"Print folder found: {print_folder}")
@@ -505,6 +503,7 @@ def order_detail(request, order_id):
                     logger.info(f"- {file}")
             except Exception as e:
                 logger.error(f"Error listing files: {str(e)}")
+                logger.error(f"Full error: {traceback.format_exc()}")
             
             # İşlenmiş SKU'ları takip et
             processed_skus = set()
@@ -527,6 +526,9 @@ def order_detail(request, order_id):
                     found_match = False
                     try:
                         for root, dirs, files in os.walk(print_folder):
+                            logger.info(f"Searching in directory: {root}")
+                            logger.info(f"Files in directory: {files}")
+                            
                             for file in files:
                                 if file.lower().endswith(('.png', '.jpg', '.jpeg')):
                                     file_name = os.path.splitext(file)[0].lower()
@@ -545,6 +547,7 @@ def order_detail(request, order_id):
                                         # Hedef dizini oluştur
                                         target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id))
                                         os.makedirs(target_dir, mode=0o755, exist_ok=True)
+                                        logger.info(f"Created target directory: {target_dir}")
                                         
                                         target_path = os.path.join(target_dir, target_filename)
                                         logger.info(f"Target path: {target_path}")
@@ -571,12 +574,14 @@ def order_detail(request, order_id):
                                             
                                         except Exception as e:
                                             logger.error(f"Failed to copy file: {str(e)}")
+                                            logger.error(f"Full error: {traceback.format_exc()}")
                                             continue
                             
                             if found_match:
                                 break
                     except Exception as e:
                         logger.error(f"Error searching for SKU {item.sku}: {str(e)}")
+                        logger.error(f"Full error: {traceback.format_exc()}")
                     
                     if not found_match:
                         not_found_skus.add(item.sku)
