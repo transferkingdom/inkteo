@@ -487,11 +487,25 @@ def order_detail(request, order_id):
                 
                 # Windows'tan resimleri kopyala
                 try:
-                    # Windows yolunu düzelt
-                    source_path = windows_path.replace('\\', '/').replace('C:', '/mnt/c')
-                    logger.info(f"Converted Windows path: {source_path}")
+                    # Olası mount noktalarını kontrol et
+                    mount_points = [
+                        '/mnt/c',
+                        '/c',
+                        '/run/desktop/mnt/host/c',
+                        '/run/user/1000/gvfs/smb-share:server=localhost,share=c',
+                        '/host/c'
+                    ]
                     
-                    if os.path.exists(source_path):
+                    source_path = None
+                    for mount in mount_points:
+                        test_path = os.path.join(mount, windows_path[3:].replace('\\', '/'))
+                        logger.info(f"Checking mount point: {test_path}")
+                        if os.path.exists(mount):
+                            source_path = test_path
+                            logger.info(f"Found valid mount point: {mount}")
+                            break
+                    
+                    if source_path and os.path.exists(source_path):
                         logger.info(f"Source path exists: {source_path}")
                         logger.info(f"Source path contents: {os.listdir(source_path)}")
                         
@@ -511,7 +525,7 @@ def order_detail(request, order_id):
                                         logger.error(f"Error copying {file}: {str(e)}")
                                         logger.error(f"Full error: {traceback.format_exc()}")
                     else:
-                        logger.warning(f"Source path does not exist: {source_path}")
+                        logger.warning(f"No valid source path found")
                         
                 except Exception as e:
                     logger.error(f"Error copying files to Docker volume: {str(e)}")
