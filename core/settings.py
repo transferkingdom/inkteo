@@ -91,7 +91,7 @@ if DEBUG:
             'NAME': os.getenv('DB_NAME', 'inkteo'),
             'USER': os.getenv('DB_USER', 'postgres'),
             'PASSWORD': os.getenv('DB_PASSWORD', 'Heysem35Saint!'),
-            'HOST': os.getenv('DB_HOST', 'inkteo_db'),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
             'PORT': os.getenv('DB_PORT', '5432'),
         }
     }
