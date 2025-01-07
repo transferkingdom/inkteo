@@ -26,6 +26,7 @@ import shutil
 from requests_oauthlib import OAuth2Session
 import dropbox
 from django.urls import reverse
+import io
 
 # Configure logging
 logger = logging.getLogger('dashboard')
@@ -470,206 +471,49 @@ def order_detail(request, order_id):
         logger.info("\n========== PRINT IMAGE SEARCH STARTED ==========")
         logger.info(f"Batch ID: {batch.order_id}")
         
-        # Print klasörünü kontrol et
-        try:
-            print_settings = PrintImageSettings.objects.get(user=request.user)
-            windows_path = print_settings.print_folder_path
-            
-            if not windows_path:
-                logger.warning("Print folder path is empty in settings")
-                return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
-            
-            # Ortama göre yolu ayarla
-            if not django_settings.DEBUG:  # Production ortamı
-                print_folder = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
-                logger.info(f"Using Docker volume path: {print_folder}")
-                
-                # Docker volume'da klasör yoksa oluştur
-                if not os.path.exists(print_folder):
-                    os.makedirs(print_folder, mode=0o755, exist_ok=True)
-                    logger.info(f"Created Docker volume directory: {print_folder}")
-                
-                # Windows'tan resimleri kopyala
-                try:
-                    # Olası mount noktalarını kontrol et
-                    mount_points = [
-                        '/mnt/c',
-                        '/c',
-                        '/run/desktop/mnt/host/c',
-                        '/run/user/1000/gvfs/smb-share:server=localhost,share=c',
-                        '/host/c'
-                    ]
+        # Her bir sipariş öğesi için print image ara
+        for order in batch.orders.all():
+            for item in order.items.all():
+                if not item.print_image:  # Eğer print image henüz bulunmamışsa
+                    logger.info(f"Searching print image for SKU: {item.sku}")
                     
-                    source_path = None
-                    for mount in mount_points:
-                        test_path = os.path.join(mount, windows_path[3:].replace('\\', '/'))
-                        logger.info(f"Checking mount point: {test_path}")
-                        if os.path.exists(mount):
-                            source_path = test_path
-                            logger.info(f"Found valid mount point: {mount}")
-                            break
+                    # Print image'ı bul (yerel veya Dropbox)
+                    image_path = find_print_image(item.sku)
                     
-                    if source_path and os.path.exists(source_path):
-                        logger.info(f"Source path exists: {source_path}")
-                        logger.info(f"Source path contents: {os.listdir(source_path)}")
+                    if image_path:
+                        logger.info(f"Found print image: {image_path}")
                         
-                        for root, dirs, files in os.walk(source_path):
-                            for file in files:
-                                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                    source_file = os.path.join(root, file)
-                                    target_file = os.path.join(print_folder, file)
-                                    
-                                    try:
-                                        if not os.path.exists(target_file):
-                                            logger.info(f"Copying {source_file} to {target_file}")
-                                            shutil.copy2(source_file, target_file)
-                                            os.chmod(target_file, 0o644)
-                                            logger.info(f"Successfully copied {file}")
-                                    except Exception as e:
-                                        logger.error(f"Error copying {file}: {str(e)}")
-                                        logger.error(f"Full error: {traceback.format_exc()}")
+                        # Hedef dizin yolu
+                        target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
+                        os.makedirs(target_dir, exist_ok=True)
+                        
+                        # Hedef dosya yolu
+                        target_path = os.path.join(target_dir, os.path.basename(image_path))
+                        
+                        try:
+                            # Dosyayı kopyala
+                            if not os.path.exists(target_path):
+                                shutil.copy2(image_path, target_path)
+                                logger.info(f"Copied print image to: {target_path}")
+                            
+                            # Veritabanında yolu güncelle
+                            relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', os.path.basename(image_path))
+                            item.print_image = relative_path
+                            item.save()
+                            logger.info(f"Updated database record with path: {relative_path}")
+                            
+                        except Exception as e:
+                            logger.error(f"Error copying file: {str(e)}")
                     else:
-                        logger.warning(f"No valid source path found")
-                        
-                except Exception as e:
-                    logger.error(f"Error copying files to Docker volume: {str(e)}")
-                    logger.error(f"Full error: {traceback.format_exc()}")
-            else:  # Local ortam
-                print_folder = windows_path
-                logger.info(f"Using local path: {print_folder}")
-            
-            # Dizin varlığını kontrol et
-            if not os.path.exists(print_folder):
-                logger.warning(f"Print folder does not exist: {print_folder}")
-                return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
-            
-            logger.info(f"Print folder found: {print_folder}")
-            logger.info(f"Print folder contents: {os.listdir(print_folder)}")
-            
-            # Print klasöründeki tüm dosyaları listele
-            all_files = []
-            try:
-                for root, dirs, files in os.walk(print_folder):
-                    for file in files:
-                        if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                            all_files.append(os.path.join(root, file))
-                
-                logger.info(f"Total image files found in print folder: {len(all_files)}")
-                logger.info("Image files:")
-                for file in all_files:
-                    logger.info(f"- {file}")
-            except Exception as e:
-                logger.error(f"Error listing files: {str(e)}")
-                logger.error(f"Full error: {traceback.format_exc()}")
-            
-            # İşlenmiş SKU'ları takip et
-            processed_skus = set()
-            not_found_skus = set()
-            found_matches = {}
-            
-            # Siparişleri işle
-            logger.info("\n---------- PROCESSING ORDERS ----------")
-            for order in batch.orders.all():
-                logger.info(f"\nProcessing order: {order.etsy_order_number}")
-                
-                for item in order.items.all():
-                    if item.sku in processed_skus:
-                        continue
-                    
-                    processed_skus.add(item.sku)
-                    logger.info(f"\nLooking for SKU: {item.sku}")
-                    
-                    # Print klasöründe resmi ara
-                    found_match = False
-                    try:
-                        for root, dirs, files in os.walk(print_folder):
-                            logger.info(f"Searching in directory: {root}")
-                            logger.info(f"Files in directory: {files}")
-                            
-                            for file in files:
-                                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                    file_name = os.path.splitext(file)[0].lower()
-                                    search_sku = item.sku.lower().strip()
-                                    
-                                    logger.info(f"Comparing file '{file_name}' with SKU '{search_sku}'")
-                                    
-                                    if search_sku == file_name or file_name.startswith(f"{search_sku}-"):
-                                        source_path = os.path.join(root, file)
-                                        logger.info(f"Found matching file: {file}")
-                                        logger.info(f"Full path: {source_path}")
-                                        
-                                        file_extension = os.path.splitext(file)[1]
-                                        target_filename = f"{item.sku}{file_extension}"
-                                        
-                                        # Hedef dizini oluştur
-                                        target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id))
-                                        os.makedirs(target_dir, mode=0o755, exist_ok=True)
-                                        logger.info(f"Created target directory: {target_dir}")
-                                        
-                                        target_path = os.path.join(target_dir, target_filename)
-                                        logger.info(f"Target path: {target_path}")
-                                        
-                                        try:
-                                            # Dosyayı kopyala
-                                            shutil.copy2(source_path, target_path)
-                                            os.chmod(target_path, 0o644)
-                                            logger.info("File copied successfully")
-                                            
-                                            # Veritabanını güncelle
-                                            relative_path = os.path.join('orders', 'images', str(batch.order_id), target_filename)
-                                            
-                                            # Aynı SKU'ya sahip tüm öğeleri güncelle
-                                            OrderItem.objects.filter(
-                                                order__batch=batch,
-                                                sku=item.sku
-                                            ).update(print_image=relative_path)
-                                            
-                                            found_match = True
-                                            found_matches[item.sku] = file
-                                            logger.info("Database updated successfully")
-                                            break
-                                            
-                                        except Exception as e:
-                                            logger.error(f"Failed to copy file: {str(e)}")
-                                            logger.error(f"Full error: {traceback.format_exc()}")
-                                            continue
-                            
-                            if found_match:
-                                break
-                    except Exception as e:
-                        logger.error(f"Error searching for SKU {item.sku}: {str(e)}")
-                        logger.error(f"Full error: {traceback.format_exc()}")
-                    
-                    if not found_match:
-                        not_found_skus.add(item.sku)
-                        logger.warning(f"No matching file found for SKU: {item.sku}")
-            
-            # Özet rapor
-            logger.info("\n========== PRINT IMAGE SEARCH SUMMARY ==========")
-            logger.info(f"Total SKUs processed: {len(processed_skus)}")
-            logger.info(f"SKUs with matching files: {len(found_matches)}")
-            logger.info("Matched SKUs:")
-            for sku, file in found_matches.items():
-                logger.info(f"- SKU: {sku} -> File: {file}")
-            
-            logger.info(f"\nSKUs with no matching files: {len(not_found_skus)}")
-            logger.info("Missing SKUs:")
-            for sku in not_found_skus:
-                logger.info(f"- {sku}")
-            
-        except PrintImageSettings.DoesNotExist:
-            logger.warning("Print settings not found for user")
-            pass
-            
+                        logger.warning(f"No print image found for SKU: {item.sku}")
+    
     except Exception as e:
         logger.error(f"Error in order detail: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
     
-    context = {
+    return render(request, 'dashboard/orders/detail.html', {
         'batch': batch,
         'active_tab': 'orders'
-    }
-    return render(request, 'dashboard/orders/detail.html', context)
+    })
 
 @login_required
 def print_image_settings(request):
@@ -731,17 +575,83 @@ def select_print_folder(request):
             return JsonResponse({'status': 'success'})
     return JsonResponse({'status': 'error'})
 
-def find_print_image(sku):
-    """SKU'ya göre print image dosyasını bul"""
-    settings = PrintImageSettings.objects.first()
-    if not settings or not settings.print_folder_path:
+def find_print_image_in_dropbox(dbx, sku, folder_path='/Print Images'):
+    """Dropbox'ta SKU'ya göre print image dosyasını bul"""
+    try:
+        # Dropbox klasörünü listele
+        result = dbx.files_list_folder(folder_path, recursive=True)
+        
+        # Dosyaları kontrol et
+        while True:
+            for entry in result.entries:
+                if isinstance(entry, dropbox.files.FileMetadata):
+                    if sku.lower() in entry.name.lower():
+                        return entry.path_display
+            
+            # Daha fazla sonuç varsa devam et
+            if result.has_more:
+                result = dbx.files_list_folder_continue(result.cursor)
+            else:
+                break
+                
         return None
         
-    for root, dirs, files in os.walk(settings.print_folder_path):
-        for file in files:
-            if sku in file:
-                return os.path.join(root, file)
-    return None
+    except Exception as e:
+        logger.error(f"Dropbox search error: {str(e)}")
+        return None
+
+def download_from_dropbox(dbx, dropbox_path, local_path):
+    """Dropbox'tan dosyayı indir"""
+    try:
+        # Dizin yapısını oluştur
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        
+        # Dosyayı indir
+        with open(local_path, 'wb') as f:
+            metadata, response = dbx.files_download(dropbox_path)
+            f.write(response.content)
+            
+        return True
+        
+    except Exception as e:
+        logger.error(f"Dropbox download error: {str(e)}")
+        return False
+
+def find_print_image(sku):
+    """SKU'ya göre print image dosyasını bul"""
+    try:
+        # Önce yerel dizinde ara
+        settings = PrintImageSettings.objects.first()
+        if settings and settings.print_folder_path:
+            for root, dirs, files in os.walk(settings.print_folder_path):
+                for file in files:
+                    if sku.lower() in file.lower():
+                        return os.path.join(root, file)
+        
+        # Yerel dizinde bulunamazsa ve Dropbox bağlantısı varsa Dropbox'ta ara
+        if settings and settings.use_dropbox and settings.dropbox_access_token:
+            try:
+                # Dropbox client oluştur
+                dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                
+                # Dropbox'ta dosyayı ara
+                dropbox_path = find_print_image_in_dropbox(dbx, sku, settings.dropbox_folder_path)
+                if dropbox_path:
+                    # Yerel kayıt yolu oluştur
+                    local_path = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'print_images', os.path.basename(dropbox_path))
+                    
+                    # Dropbox'tan indir
+                    if download_from_dropbox(dbx, dropbox_path, local_path):
+                        return local_path
+                    
+            except Exception as e:
+                logger.error(f"Dropbox error: {str(e)}")
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"Find print image error: {str(e)}")
+        return None
 
 @login_required
 def dropbox_auth(request):
