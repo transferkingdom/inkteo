@@ -464,19 +464,30 @@ def order_detail(request, order_id):
     
     # Test Docker volume permissions
     try:
-        print("\n[DEBUG] ===== VOLUME PERMISSIONS TEST =====")
-        test_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images')
-        print(f"[DEBUG] Testing directory: {test_dir}")
+        print("\n[DEBUG] ===== DOCKER VOLUME CHECK =====")
+        media_root = django_settings.MEDIA_ROOT
+        print(f"[DEBUG] MEDIA_ROOT: {media_root}")
+        print(f"[DEBUG] MEDIA_ROOT exists: {os.path.exists(media_root)}")
+        if os.path.exists(media_root):
+            print(f"[DEBUG] MEDIA_ROOT permissions: {oct(os.stat(media_root).st_mode)[-3:]}")
+            print(f"[DEBUG] MEDIA_ROOT contents: {os.listdir(media_root)}")
         
-        if os.path.exists(test_dir):
-            print(f"[DEBUG] Directory exists. Permissions: {oct(os.stat(test_dir).st_mode)[-3:]}")
-            print(f"[DEBUG] Owner: {os.stat(test_dir).st_uid}")
-            print(f"[DEBUG] Group: {os.stat(test_dir).st_gid}")
-            print(f"[DEBUG] Contents: {os.listdir(test_dir)}")
-        else:
-            print("[DEBUG] Directory does not exist!")
+        orders_dir = os.path.join(media_root, 'orders')
+        print(f"[DEBUG] Orders directory: {orders_dir}")
+        print(f"[DEBUG] Orders directory exists: {os.path.exists(orders_dir)}")
+        if os.path.exists(orders_dir):
+            print(f"[DEBUG] Orders directory permissions: {oct(os.stat(orders_dir).st_mode)[-3:]}")
+            print(f"[DEBUG] Orders directory contents: {os.listdir(orders_dir)}")
+        
+        images_dir = os.path.join(orders_dir, 'images')
+        print(f"[DEBUG] Images directory: {images_dir}")
+        print(f"[DEBUG] Images directory exists: {os.path.exists(images_dir)}")
+        if os.path.exists(images_dir):
+            print(f"[DEBUG] Images directory permissions: {oct(os.stat(images_dir).st_mode)[-3:]}")
+            print(f"[DEBUG] Images directory contents: {os.listdir(images_dir)}")
     except Exception as e:
-        print(f"[ERROR] Error testing volume: {str(e)}")
+        print(f"[ERROR] Error checking Docker volume: {str(e)}")
+        print(f"[ERROR] Full traceback: {traceback.format_exc()}")
     
     # Get print folder path from settings
     try:
@@ -485,8 +496,6 @@ def order_detail(request, order_id):
         print_folder = print_settings.print_folder_path
         
         print(f"[DEBUG] Print folder path: {print_folder}")
-        print(f"[DEBUG] MEDIA_ROOT: {django_settings.MEDIA_ROOT}")
-        
         if not print_folder:
             print("[WARNING] Print folder path is empty!")
             return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
@@ -496,6 +505,7 @@ def order_detail(request, order_id):
             return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
         
         print("[DEBUG] Print folder exists")
+        print(f"[DEBUG] Print folder permissions: {oct(os.stat(print_folder).st_mode)[-3:]}")
         print(f"[DEBUG] Print folder contents: {os.listdir(print_folder)}")
         
         # Create a set to track processed SKUs
@@ -545,6 +555,8 @@ def order_detail(request, order_id):
                                 if os.path.exists(source_path):
                                     print(f"[DEBUG] File size: {os.path.getsize(source_path)} bytes")
                                     print(f"[DEBUG] File permissions: {oct(os.stat(source_path).st_mode)[-3:]}")
+                                    print(f"[DEBUG] File owner: {os.stat(source_path).st_uid}")
+                                    print(f"[DEBUG] File group: {os.stat(source_path).st_gid}")
                                 
                                 # Create target directory structure
                                 target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
@@ -584,17 +596,27 @@ def order_detail(request, order_id):
                                     print(f"[DEBUG] Target: {target_path}")
                                     
                                     # Dosyayı kopyala
-                                    with open(source_path, 'rb') as src:
-                                        file_data = src.read()
-                                        print(f"[DEBUG] Read {len(file_data)} bytes from source file")
-                                        
-                                        with open(target_path, 'wb') as dst:
-                                            dst.write(file_data)
-                                            print(f"[DEBUG] Wrote {len(file_data)} bytes to target file")
+                                    try:
+                                        with open(source_path, 'rb') as src:
+                                            file_data = src.read()
+                                            print(f"[DEBUG] Successfully read {len(file_data)} bytes from source file")
+                                            
+                                            with open(target_path, 'wb') as dst:
+                                                dst.write(file_data)
+                                                dst.flush()
+                                                os.fsync(dst.fileno())  # Ensure data is written to disk
+                                                print(f"[DEBUG] Successfully wrote {len(file_data)} bytes to target file")
+                                    except IOError as e:
+                                        print(f"[ERROR] IOError during file copy: {str(e)}")
+                                        print(f"[ERROR] Full traceback: {traceback.format_exc()}")
+                                        continue
                                     
                                     # İzinleri ayarla
-                                    os.chmod(target_path, 0o644)
-                                    print(f"[DEBUG] File permissions set to 644")
+                                    try:
+                                        os.chmod(target_path, 0o644)
+                                        print(f"[DEBUG] File permissions set to 644")
+                                    except Exception as e:
+                                        print(f"[ERROR] Error setting file permissions: {str(e)}")
                                     
                                     # Verify file exists and check its properties
                                     if os.path.exists(target_path):
@@ -603,23 +625,23 @@ def order_detail(request, order_id):
                                         print(f"[DEBUG] File permissions: {oct(os.stat(target_path).st_mode)[-3:]}")
                                         print(f"[DEBUG] File owner: {os.stat(target_path).st_uid}")
                                         print(f"[DEBUG] File group: {os.stat(target_path).st_gid}")
+                                        
+                                        # Set relative path for database
+                                        relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', target_filename)
+                                        print(f"\n[DEBUG] ===== UPDATING DATABASE =====")
+                                        print(f"[DEBUG] Setting database path: {relative_path}")
+                                        
+                                        # Update all items with the same SKU
+                                        same_sku_items = OrderItem.objects.filter(
+                                            order__batch=batch,
+                                            sku=item.sku
+                                        )
+                                        for same_item in same_sku_items:
+                                            same_item.print_image = relative_path
+                                            same_item.save()
+                                            print(f"[DEBUG] Updated item {same_item.id} with path: {relative_path}")
                                     else:
                                         print(f"[ERROR] File not found at target path after copy: {target_path}")
-                                    
-                                    # Set relative path for database
-                                    relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', target_filename)
-                                    print(f"\n[DEBUG] ===== UPDATING DATABASE =====")
-                                    print(f"[DEBUG] Setting database path: {relative_path}")
-                                    
-                                    # Update all items with the same SKU
-                                    same_sku_items = OrderItem.objects.filter(
-                                        order__batch=batch,
-                                        sku=item.sku
-                                    )
-                                    for same_item in same_sku_items:
-                                        same_item.print_image = relative_path
-                                        same_item.save()
-                                        print(f"[DEBUG] Updated item {same_item.id} with path: {relative_path}")
                                     
                                 except Exception as e:
                                     print(f"[ERROR] Error copying file {source_path} to {target_path}: {str(e)}")
