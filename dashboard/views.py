@@ -469,52 +469,44 @@ def order_detail(request, order_id):
         # Print klasörünü kontrol et
         try:
             print_settings = PrintImageSettings.objects.get(user=request.user)
-            print_folder = print_settings.print_folder_path
+            windows_path = print_settings.print_folder_path
             
-            if not print_folder:
+            if not windows_path:
                 logger.warning("Print folder path is empty in settings")
                 return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
             # Ortama göre yolu ayarla
             if not django_settings.DEBUG:  # Production ortamı
-                # Windows yolunu Docker yoluna çevir
-                docker_path = None
+                print_folder = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
+                logger.info(f"Using Docker volume path: {print_folder}")
                 
-                # Önce orijinal Windows yolunu kontrol et
-                if os.path.exists(print_folder):
-                    docker_path = print_folder
-                    logger.info(f"Using original path: {docker_path}")
-                else:
-                    # Mount noktalarını kontrol et
-                    mount_points = ['/mnt/c', '/c']
-                    windows_path = print_folder.replace('\\', '/').replace('C:', '')
-                    
-                    for mount in mount_points:
-                        test_path = os.path.join(mount, windows_path.lstrip('/'))
-                        logger.info(f"Checking mount point: {test_path}")
-                        if os.path.exists(mount):
-                            docker_path = test_path
-                            logger.info(f"Found valid mount point: {mount}")
-                            break
-                    
-                    if not docker_path:
-                        # Alternatif yol dene
-                        alt_path = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
-                        if os.path.exists(alt_path):
-                            docker_path = alt_path
-                            logger.info(f"Using alternative path: {docker_path}")
-                
-                if docker_path:
-                    print_folder = docker_path
-                    logger.info(f"Final Docker path: {print_folder}")
-                else:
-                    logger.warning(f"Print folder does not exist: {print_folder}")
-                    return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
-            else:  # Local ortam
-                logger.info(f"Local path: {print_folder}")
+                # Docker volume'da klasör yoksa oluştur
                 if not os.path.exists(print_folder):
-                    logger.warning(f"Print folder does not exist: {print_folder}")
-                    return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
+                    os.makedirs(print_folder, mode=0o755, exist_ok=True)
+                    logger.info(f"Created Docker volume directory: {print_folder}")
+                
+                # Windows'tan resimleri kopyala
+                try:
+                    if os.path.exists(windows_path):
+                        for root, dirs, files in os.walk(windows_path):
+                            for file in files:
+                                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                    source = os.path.join(root, file)
+                                    target = os.path.join(print_folder, file)
+                                    if not os.path.exists(target):
+                                        shutil.copy2(source, target)
+                                        os.chmod(target, 0o644)
+                                        logger.info(f"Copied {file} to Docker volume")
+                except Exception as e:
+                    logger.error(f"Error copying files to Docker volume: {str(e)}")
+            else:  # Local ortam
+                print_folder = windows_path
+                logger.info(f"Using local path: {print_folder}")
+            
+            # Dizin varlığını kontrol et
+            if not os.path.exists(print_folder):
+                logger.warning(f"Print folder does not exist: {print_folder}")
+                return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
             
             logger.info(f"Print folder found: {print_folder}")
             
@@ -658,6 +650,12 @@ def print_image_settings(request):
             if not created:
                 settings.print_folder_path = folder_path
                 settings.save()
+            
+            # Production ortamında Docker volume'da klasör oluştur
+            if not django_settings.DEBUG:
+                docker_path = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
+                os.makedirs(docker_path, mode=0o755, exist_ok=True)
+                logger.info(f"Created Docker volume directory: {docker_path}")
             
             return JsonResponse({
                 'status': 'success',
