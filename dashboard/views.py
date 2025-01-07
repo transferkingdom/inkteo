@@ -464,12 +464,20 @@ def order_detail(request, order_id):
     
     # Test Docker volume permissions
     try:
+        print("\n[DEBUG] ===== DOCKER ENVIRONMENT CHECK =====")
+        print(f"[DEBUG] DEBUG mode: {django_settings.DEBUG}")
+        print(f"[DEBUG] Current working directory: {os.getcwd()}")
+        print(f"[DEBUG] User running process: {os.getuid() if hasattr(os, 'getuid') else 'N/A'}")
+        print(f"[DEBUG] Group running process: {os.getgid() if hasattr(os, 'getgid') else 'N/A'}")
+        
         print("\n[DEBUG] ===== DOCKER VOLUME CHECK =====")
         media_root = django_settings.MEDIA_ROOT
         print(f"[DEBUG] MEDIA_ROOT: {media_root}")
         print(f"[DEBUG] MEDIA_ROOT exists: {os.path.exists(media_root)}")
         if os.path.exists(media_root):
             print(f"[DEBUG] MEDIA_ROOT permissions: {oct(os.stat(media_root).st_mode)[-3:]}")
+            print(f"[DEBUG] MEDIA_ROOT owner: {os.stat(media_root).st_uid}")
+            print(f"[DEBUG] MEDIA_ROOT group: {os.stat(media_root).st_gid}")
             print(f"[DEBUG] MEDIA_ROOT contents: {os.listdir(media_root)}")
         
         orders_dir = os.path.join(media_root, 'orders')
@@ -477,6 +485,8 @@ def order_detail(request, order_id):
         print(f"[DEBUG] Orders directory exists: {os.path.exists(orders_dir)}")
         if os.path.exists(orders_dir):
             print(f"[DEBUG] Orders directory permissions: {oct(os.stat(orders_dir).st_mode)[-3:]}")
+            print(f"[DEBUG] Orders directory owner: {os.stat(orders_dir).st_uid}")
+            print(f"[DEBUG] Orders directory group: {os.stat(orders_dir).st_gid}")
             print(f"[DEBUG] Orders directory contents: {os.listdir(orders_dir)}")
         
         images_dir = os.path.join(orders_dir, 'images')
@@ -484,9 +494,31 @@ def order_detail(request, order_id):
         print(f"[DEBUG] Images directory exists: {os.path.exists(images_dir)}")
         if os.path.exists(images_dir):
             print(f"[DEBUG] Images directory permissions: {oct(os.stat(images_dir).st_mode)[-3:]}")
+            print(f"[DEBUG] Images directory owner: {os.stat(images_dir).st_uid}")
+            print(f"[DEBUG] Images directory group: {os.stat(images_dir).st_gid}")
             print(f"[DEBUG] Images directory contents: {os.listdir(images_dir)}")
+            
+        # Test write permissions
+        print("\n[DEBUG] ===== TESTING WRITE PERMISSIONS =====")
+        test_dir = os.path.join(images_dir, 'test_write')
+        try:
+            os.makedirs(test_dir, exist_ok=True)
+            print(f"[DEBUG] Successfully created test directory: {test_dir}")
+            
+            test_file = os.path.join(test_dir, 'test.txt')
+            with open(test_file, 'w') as f:
+                f.write('test')
+            print(f"[DEBUG] Successfully wrote test file: {test_file}")
+            
+            os.remove(test_file)
+            os.rmdir(test_dir)
+            print("[DEBUG] Successfully cleaned up test files")
+        except Exception as e:
+            print(f"[ERROR] Write permission test failed: {str(e)}")
+            print(f"[ERROR] Full traceback: {traceback.format_exc()}")
+        
     except Exception as e:
-        print(f"[ERROR] Error checking Docker volume: {str(e)}")
+        print(f"[ERROR] Error checking Docker environment: {str(e)}")
         print(f"[ERROR] Full traceback: {traceback.format_exc()}")
     
     # Get print folder path from settings
@@ -506,6 +538,8 @@ def order_detail(request, order_id):
         
         print("[DEBUG] Print folder exists")
         print(f"[DEBUG] Print folder permissions: {oct(os.stat(print_folder).st_mode)[-3:]}")
+        print(f"[DEBUG] Print folder owner: {os.stat(print_folder).st_uid}")
+        print(f"[DEBUG] Print folder group: {os.stat(print_folder).st_gid}")
         print(f"[DEBUG] Print folder contents: {os.listdir(print_folder)}")
         
         # Create a set to track processed SKUs
