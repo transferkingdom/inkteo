@@ -163,14 +163,15 @@ if DEBUG:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 else:
     MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/code/media'
-    # Ensure media directories exist
-    MEDIA_DIRS = [
-        os.path.join(MEDIA_ROOT, 'orders/pdfs'),
-        os.path.join(MEDIA_ROOT, 'orders/images'),
-        os.path.join(MEDIA_ROOT, 'orders/raw_data')
-    ]
-    for dir_path in MEDIA_DIRS:
-        os.makedirs(dir_path, exist_ok=True)
+
+# Ensure media directories exist in both environments
+MEDIA_DIRS = [
+    os.path.join(MEDIA_ROOT, 'orders/pdfs'),
+    os.path.join(MEDIA_ROOT, 'orders/images'),
+    os.path.join(MEDIA_ROOT, 'orders/raw_data')
+]
+for dir_path in MEDIA_DIRS:
+    os.makedirs(dir_path, exist_ok=True)
 
 # Security Settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

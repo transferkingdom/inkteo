@@ -13,6 +13,7 @@ from django.http import HttpResponse, JsonResponse
 import json
 from django.utils import timezone
 from django.conf import settings
+import os
 from allauth.account.utils import send_email_confirmation
 from django.db.models import Q
 from django.contrib.auth.password_validation import validate_password
@@ -21,8 +22,6 @@ from .models import BatchOrder, OrderDetail, OrderItem, PrintImageSettings
 from .utils import generate_order_id, extract_order_data
 from django.core.serializers.json import DjangoJSONEncoder
 from datetime import date, datetime
-import os
-from django.core.files import File
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
