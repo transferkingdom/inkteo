@@ -216,6 +216,13 @@ ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_EMAIL_CONFIRMATION_HTML = True
 ACCOUNT_EMAIL_CONFIRMATION_HMAC = True
 
+# Redirects
+LOGIN_REDIRECT_URL = 'dashboard:home'  # Dashboard ana sayfasına yönlendir
+ACCOUNT_LOGOUT_REDIRECT_URL = 'account_login'
+LOGIN_URL = 'account_login'
+ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = 'account_login'
+ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = 'dashboard:home'
+
 # Rate limits
 ACCOUNT_RATE_LIMITS = {
     'login_failed': '5/300m',
@@ -246,13 +253,6 @@ DEFAULT_FROM_EMAIL = f"Inkteo <{os.environ.get('EMAIL_HOST_USER', 'sainteagle@gm
 # Email template settings
 ACCOUNT_EMAIL_CONFIRMATION_TEMPLATE = 'account/email/email_confirmation_message.html'
 ACCOUNT_EMAIL_CONFIRMATION_SIGNUP_TEMPLATE = 'account/email/email_confirmation_message.html'
-
-# Redirects
-LOGIN_REDIRECT_URL = 'home'
-ACCOUNT_LOGOUT_REDIRECT_URL = 'account_login'
-LOGIN_URL = 'account_login'
-ACCOUNT_EMAIL_CONFIRMATION_ANONYMOUS_REDIRECT_URL = 'account_login'
-ACCOUNT_EMAIL_CONFIRMATION_AUTHENTICATED_REDIRECT_URL = 'home'
 
 # Crispy Forms settings
 CRISPY_ALLOWED_TEMPLATE_PACKS = "tailwind"
