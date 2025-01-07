@@ -248,10 +248,20 @@ def extract_images_from_page(page, batch_id):
 def extract_order_data(pdf_file):
     """Extract order data from PDF"""
     try:
+        print(f"Starting PDF extraction. Input type: {type(pdf_file)}")  # Debug için input tipini yazdır
+        
         # Read PDF
         reader = None
         try:
-            reader = PyPDF2.PdfReader(pdf_file, strict=False)
+            if isinstance(pdf_file, str):
+                print(f"Reading PDF from path: {pdf_file}")  # Debug için dosya yolunu yazdır
+                reader = PyPDF2.PdfReader(pdf_file, strict=False)
+            else:
+                print("Reading PDF from file object")  # Debug için dosya objesi olduğunu yazdır
+                reader = PyPDF2.PdfReader(pdf_file.file, strict=False)
+                
+            print(f"PDF reader created successfully")  # Debug için reader oluşturulduğunu yazdır
+            
         except Exception as e:
             print(f"PDF reading error: {str(e)}")
             raise Exception("Could not read PDF file. Please upload a valid PDF file.")

@@ -12,7 +12,7 @@ import traceback
 from django.http import HttpResponse, JsonResponse
 import json
 from django.utils import timezone
-from django.conf import settings
+from django.conf import settings as django_settings
 import os
 from allauth.account.utils import send_email_confirmation
 from django.db.models import Q
@@ -39,7 +39,7 @@ def home(request):
 
 @ensure_csrf_cookie
 @login_required
-def settings(request):
+def settings_view(request):
     # Clear any existing messages
     from django.contrib.messages import get_messages
     storage = get_messages(request)
@@ -302,6 +302,7 @@ def upload_orders(request):
     print("Request method:", request.method)
     print("Files:", request.FILES)
     print("POST data:", request.POST)
+    print("MEDIA_ROOT:", django_settings.MEDIA_ROOT)  # django_settings kullan
 
     if request.method == 'POST':
         if 'pdf_file' not in request.FILES:
@@ -328,24 +329,29 @@ def upload_orders(request):
             )
             print(f"Created batch order: {batch.order_id}")
 
-            # PDF dosyasını kaydet
-            pdf_path = os.path.join('orders', 'pdfs', str(batch.order_id), pdf_file.name)
-            full_path = os.path.join(settings.MEDIA_ROOT, pdf_path)
-            
-            # Dizin yapısını oluştur
-            os.makedirs(os.path.dirname(full_path), exist_ok=True)
-            
-            # Dosyayı kaydet
-            with open(full_path, 'wb+') as destination:
-                for chunk in pdf_file.chunks():
-                    destination.write(chunk)
-            
-            # PDF dosya yolunu BatchOrder'a kaydet
-            batch.pdf_file = pdf_path
-            batch.save()
-
             try:
-                # Extract data from PDF
+                # Önce PDF dosyasını kaydet
+                pdf_path = os.path.join('orders', 'pdfs', str(batch.order_id), pdf_file.name)
+                full_path = os.path.join(django_settings.MEDIA_ROOT, pdf_path)  # django_settings kullan
+                print(f"PDF will be saved to: {full_path}")
+                
+                # Dizin yapısını oluştur
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                print(f"Directory created: {os.path.dirname(full_path)}")  # Debug için dizin yolunu yazdır
+                
+                # Dosyayı kaydet
+                with open(full_path, 'wb+') as destination:
+                    for chunk in pdf_file.chunks():
+                        destination.write(chunk)
+                print("PDF file saved successfully")  # Debug için kayıt durumunu yazdır
+                
+                # PDF dosya yolunu BatchOrder'a kaydet
+                batch.pdf_file = pdf_path
+                batch.save()
+                print(f"PDF path saved to batch: {pdf_path}")  # Debug için kaydedilen yolu yazdır
+
+                # Şimdi kaydedilen dosyayı işle
+                print(f"Starting PDF processing from: {full_path}")  # Debug için işleme başlangıcını yazdır
                 orders_data = extract_order_data(full_path)
                 print(f"Extracted {len(orders_data)} orders from PDF")
                 
@@ -359,6 +365,7 @@ def upload_orders(request):
 
                 batch.raw_data = json.dumps(serializable_data, cls=DjangoJSONEncoder)
                 batch.total_orders = len(orders_data)
+                batch.save()
                 
                 # Process orders
                 total_items = 0

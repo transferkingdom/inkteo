@@ -23,15 +23,14 @@ from django.views.generic import TemplateView
 from .views import verification_required_view
 
 urlpatterns = [
-    path('', include('pages.urls')),  # Ana sayfa için
     path('admin/', admin.site.urls),
     path('accounts/', include('allauth.urls')),
-    path('', include('dashboard.urls')),
+    path('dashboard/', include('dashboard.urls')),
     path('verification-required/', verification_required_view, name='verification_required'),
-    path('', TemplateView.as_view(template_name='home.html'), name='home'),
+    path('', include('pages.urls')),
 ]
 
-# Her durumda static ve media dosyalarını serve et
+# Media dosyaları için URL yapılandırması
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 else:
