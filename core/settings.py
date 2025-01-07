@@ -267,11 +267,6 @@ if DEBUG:
                 'level': 'INFO',
                 'propagate': False,
             },
-            'whitenoise': {
-                'handlers': ['console'],
-                'level': 'DEBUG',
-                'propagate': False,
-            },
         },
     }
 else:
@@ -304,11 +299,6 @@ else:
             'django': {
                 'handlers': ['console', 'file'],
                 'level': 'INFO',
-                'propagate': False,
-            },
-            'whitenoise': {
-                'handlers': ['console', 'file'],
-                'level': 'DEBUG',
                 'propagate': False,
             },
         },
