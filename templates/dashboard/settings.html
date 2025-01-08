@@ -487,8 +487,6 @@ document.getElementById('passwordForm')?.addEventListener('submit', function(e) 
     }
 });
 
-<<<<<<< HEAD
-// Dropbox toggle functionality
 document.getElementById('use_dropbox')?.addEventListener('change', function() {
     const dropboxSettings = document.getElementById('dropboxSettings');
     if (this.checked) {
@@ -498,9 +496,6 @@ document.getElementById('use_dropbox')?.addEventListener('change', function() {
     }
 });
 
-// Print Settings form submission
-=======
->>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
 document.getElementById('printSettingsForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -513,25 +508,10 @@ document.getElementById('printSettingsForm')?.addEventListener('submit', functio
     })
     .then(response => response.json())
     .then(data => {
-<<<<<<< HEAD
-        const messageDiv = document.createElement('div');
-        messageDiv.className = data.status === 'success' ? 
-            'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-md shadow-lg z-50' :
-            'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-md shadow-lg z-50';
-        messageDiv.textContent = data.message || (data.status === 'success' ? 
-            'Settings saved successfully' : 
-            'Error saving settings');
-        document.body.appendChild(messageDiv);
-        
-        setTimeout(() => {
-            messageDiv.remove();
-        }, 3000);
-=======
         showNotification(
             data.status === 'success' ? 'Settings saved successfully' : 'Error saving settings',
             data.status === 'success' ? 'success' : 'error'
         );
->>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
     })
     .catch(error => {
         console.error('Error:', error);
