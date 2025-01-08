@@ -628,23 +628,34 @@ def check_sku_image_exists(sku, batch_id=None):
             if os.path.isfile(target_file):
                 sku_exists = True
                 sku_path = target_file
+                print(f"Found exact match at: {target_file}")
             # Sonra küçük harfli versiyonu kontrol et
             elif os.path.isfile(target_file_lower):
                 sku_exists = True
                 sku_path = target_file_lower
-            
-        print(f"SKU image exists: {sku_exists}" + (f" at {sku_path}" if sku_exists else ""))
+                print(f"Found case-insensitive match at: {target_file_lower}")
+            else:
+                print(f"No matching file found in skufolder. Tried: {target_file} and {target_file_lower}")
+        else:
+            print(f"SKU folder does not exist: {sku_folder}")
 
         # Eğer batch_id verilmişse, batch klasöründeki işlenmiş resmi de kontrol et
+        batch_exists = False
+        batch_path = None
         if batch_id:
-            batch_path = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id), f"{sku}.png")
-            batch_exists = os.path.isfile(batch_path)
-            print(f"Batch image exists: {batch_exists}" + (f" at {batch_path}" if batch_exists else ""))
-            return sku_exists, batch_exists, sku_path, batch_path if batch_exists else None
+            batch_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id))
+            if os.path.exists(batch_folder):
+                batch_path = os.path.join(batch_folder, f"{sku}.png")
+                batch_exists = os.path.isfile(batch_path)
+                print(f"Batch image exists: {batch_exists}" + (f" at {batch_path}" if batch_exists else ""))
+            else:
+                print(f"Batch folder does not exist: {batch_folder}")
         
-        return sku_exists, False, sku_path, None
+        return sku_exists, batch_exists, sku_path, batch_path
+        
     except Exception as e:
         print(f"Error checking image existence: {str(e)}")
+        print(f"Error details: {traceback.format_exc()}")
         return False, False, None, None
 
 def find_dropbox_image(dbx, sku):
@@ -659,7 +670,7 @@ def find_dropbox_image(dbx, sku):
             # Arama parametrelerini hazırla
             search_args = {
                 'path': '',  # Tüm Dropbox'ta ara
-                'query': f'"{sku_lower}.png"',  # Tam eşleşme için tırnak içinde
+                'query': f'"{sku}.png" OR "{sku_lower}.png"',  # Hem orijinal hem de küçük harfli versiyonu ara
                 'mode': {
                     '.tag': 'filename'  # Sadece dosya adında ara
                 }
@@ -674,8 +685,9 @@ def find_dropbox_image(dbx, sku):
             if result.matches:
                 for match in result.matches:
                     if isinstance(match.metadata, dropbox.files.FileMetadata):
-                        file_name = os.path.splitext(match.metadata.name)[0].lower()  # Uzantıyı kaldır
-                        if file_name == sku_lower:  # Tam eşleşme kontrolü
+                        file_name = os.path.splitext(match.metadata.name)[0]  # Uzantıyı kaldır
+                        # Tam eşleşme kontrolü (büyük/küçük harf duyarsız)
+                        if file_name.lower() == sku_lower:
                             print(f"Found exact matching file: {match.metadata.path_display}")
                             return match.metadata.path_display
             
@@ -728,57 +740,62 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                 sku_path = os.path.join(sku_folder, f"{original_sku}.png")
                 print(f"Downloading to: {sku_path}")
                 
-                # Dropbox'tan indir
-                metadata, response = dbx.files_download(dropbox_path)
-                
-                # Önce geçici dosyaya kaydet
-                temp_path = sku_path + '.temp'
-                with open(temp_path, 'wb') as f:
-                    f.write(response.content)
-                
                 try:
-                    # Geçici dosya izinlerini ayarla
-                    os.chmod(temp_path, 0o664)
-                except Exception as e:
-                    print(f"Warning: Could not set temp file permissions: {str(e)}")
-                
-                # PNG'ye dönüştür ve SKU klasörüne kaydet
-                with Image.open(temp_path) as img:
-                    if img.mode != 'RGBA':
-                        img = img.convert('RGBA')
-                    img.save(sku_path, 'PNG', optimize=True)
-                
-                # Geçici dosyayı sil
-                try:
-                    os.remove(temp_path)
-                except Exception as e:
-                    print(f"Warning: Could not delete temp file: {str(e)}")
-                print(f"Downloaded and converted image to PNG at {sku_path}")
-                
-                try:
-                    # Dosya izinlerini web sunucusu için uygun şekilde ayarla
-                    os.chmod(sku_path, 0o664)
-                    print(f"Set permissions for {sku_path}")
-                except Exception as e:
-                    print(f"Warning: Could not set file permissions: {str(e)}")
-                
-                # SKU resmi başarıyla indirildi
-                sku_exists = True
-                
-            except dropbox.exceptions.AuthError:
-                print("Dropbox authentication error, attempting to refresh token")
-                # Token süresi dolmuşsa yenilemeyi dene
-                settings = PrintImageSettings.objects.first()
-                if refresh_dropbox_token(settings):
-                    # Yeni token ile yeni bir Dropbox client oluştur
-                    dbx = dropbox.Dropbox(settings.dropbox_access_token)
-                    # İndirmeyi tekrar dene
-                    return download_dropbox_image(dbx, dropbox_path, local_path, batch_id)
-                else:
-                    print("Failed to refresh token")
+                    # Dropbox'tan indir
+                    metadata, response = dbx.files_download(dropbox_path)
+                    
+                    # Önce geçici dosyaya kaydet
+                    temp_path = sku_path + '.temp'
+                    with open(temp_path, 'wb') as f:
+                        f.write(response.content)
+                    
+                    try:
+                        # Geçici dosya izinlerini ayarla
+                        os.chmod(temp_path, 0o664)
+                    except Exception as e:
+                        print(f"Warning: Could not set temp file permissions: {str(e)}")
+                    
+                    # PNG'ye dönüştür ve SKU klasörüne kaydet
+                    with Image.open(temp_path) as img:
+                        if img.mode != 'RGBA':
+                            img = img.convert('RGBA')
+                        img.save(sku_path, 'PNG', optimize=True)
+                    
+                    # Geçici dosyayı sil
+                    try:
+                        os.remove(temp_path)
+                    except Exception as e:
+                        print(f"Warning: Could not delete temp file: {str(e)}")
+                    print(f"Downloaded and converted image to PNG at {sku_path}")
+                    
+                    try:
+                        # Dosya izinlerini web sunucusu için uygun şekilde ayarla
+                        os.chmod(sku_path, 0o664)
+                        print(f"Set permissions for {sku_path}")
+                    except Exception as e:
+                        print(f"Warning: Could not set file permissions: {str(e)}")
+                    
+                    # SKU resmi başarıyla indirildi
+                    sku_exists = True
+                    
+                except dropbox.exceptions.ApiError as e:
+                    print(f"Dropbox API error: {str(e)}")
+                    if isinstance(e, dropbox.exceptions.AuthError):
+                        print("Dropbox authentication error, attempting to refresh token")
+                        settings = PrintImageSettings.objects.first()
+                        if refresh_dropbox_token(settings):
+                            dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                            return download_dropbox_image(dbx, dropbox_path, local_path, batch_id)
+                        else:
+                            print("Failed to refresh token")
                     return False
+                except Exception as e:
+                    print(f"Error downloading/saving image: {str(e)}")
+                    print(f"Error details: {traceback.format_exc()}")
+                    return False
+                
             except Exception as e:
-                print(f"Error downloading/saving image: {str(e)}")
+                print(f"Error in SKU folder operations: {str(e)}")
                 print(f"Error details: {traceback.format_exc()}")
                 return False
         else:
