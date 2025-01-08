@@ -617,27 +617,39 @@ def check_sku_image_exists(sku, batch_id=None):
         sku_path = None
         
         if os.path.exists(sku_folder):
+            print(f"SKU folder exists: {sku_folder}")
+            
             # SKU'yu küçük harfe çevir
             sku_lower = sku.lower()
             
-            # Tam eşleşme kontrolü yap
-            target_file = os.path.join(sku_folder, f"{sku}.png")
-            target_file_lower = os.path.join(sku_folder, f"{sku_lower}.png")
-            
-            # Önce birebir dosya adını kontrol et
-            if os.path.isfile(target_file):
-                sku_exists = True
-                sku_path = target_file
-                print(f"Found exact match at: {target_file}")
-            # Sonra küçük harfli versiyonu kontrol et
-            elif os.path.isfile(target_file_lower):
-                sku_exists = True
-                sku_path = target_file_lower
-                print(f"Found case-insensitive match at: {target_file_lower}")
-            else:
-                print(f"No matching file found in skufolder. Tried: {target_file} and {target_file_lower}")
+            # Klasördeki tüm dosyaları listele
+            try:
+                files = os.listdir(sku_folder)
+                print(f"Files in SKU folder: {files}")
+                
+                # Tam eşleşme kontrolü yap
+                for file in files:
+                    file_name = os.path.splitext(file)[0].lower()
+                    if file_name == sku_lower:
+                        sku_path = os.path.join(sku_folder, file)
+                        if os.path.isfile(sku_path):
+                            sku_exists = True
+                            print(f"Found matching file: {sku_path}")
+                            break
+                
+                if not sku_exists:
+                    print(f"No matching file found for SKU: {sku}")
+            except Exception as e:
+                print(f"Error listing SKU folder: {str(e)}")
         else:
             print(f"SKU folder does not exist: {sku_folder}")
+            # Klasör yoksa oluştur
+            try:
+                os.makedirs(sku_folder, exist_ok=True)
+                os.chmod(sku_folder, 0o775)
+                print(f"Created SKU folder: {sku_folder}")
+            except Exception as e:
+                print(f"Error creating SKU folder: {str(e)}")
 
         # Eğer batch_id verilmişse, batch klasöründeki işlenmiş resmi de kontrol et
         batch_exists = False
@@ -775,8 +787,13 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                     except Exception as e:
                         print(f"Warning: Could not set file permissions: {str(e)}")
                     
-                    # SKU resmi başarıyla indirildi
-                    sku_exists = True
+                    #�ndirilen dosyanın varlığını kontrol et
+                    if os.path.isfile(sku_path):
+                        print(f"Successfully downloaded and saved image to {sku_path}")
+                        sku_exists = True
+                    else:
+                        print(f"Failed to save image to {sku_path}")
+                        return False
                     
                 except dropbox.exceptions.ApiError as e:
                     print(f"Dropbox API error: {str(e)}")
