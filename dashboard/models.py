@@ -28,7 +28,8 @@ def pdf_file_upload_path(instance, filename):
 
 class BatchOrder(models.Model):
     """Batch order model for bulk order uploads"""
-    order_id = models.CharField(max_length=50, unique=True)  # e.g. 1000-20240321153000
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    order_id = models.CharField(max_length=50, unique=True, editable=False)  # e.g. 1000-20240321153000
     upload_date = models.DateTimeField(auto_now_add=True)
     pdf_file = models.FileField(upload_to=pdf_file_upload_path)
     total_orders = models.IntegerField(default=0)
@@ -43,6 +44,12 @@ class BatchOrder(models.Model):
         default='processing'
     )
     raw_data = models.JSONField(null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.order_id:
+            from .utils import generate_order_id
+            self.order_id = generate_order_id()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"Batch {self.order_id}"
