@@ -52,29 +52,10 @@
                          x-transition:leave-start="transform opacity-100 scale-100"
                          x-transition:leave-end="transform opacity-0 scale-95"
                          class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 z-50">
-                        <a href="{% url 'dashboard:settings' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                            <div class="flex items-center">
-                                <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                </svg>
-                                Settings
-                            </div>
-                        </a>
-                        
+                        <a href="{% url 'dashboard:settings' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
                         <form method="post" action="{% url 'account_logout' %}">
                             {% csrf_token %}
-                            <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                                <div class="flex items-center">
-                                    <svg class="w-4 h-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                                    </svg>
-                                    Logout
-                                </div>
-                            </button>
+                            <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</button>
                         </form>
                     </div>
                 </div>
@@ -91,8 +72,8 @@
             <!-- Settings Tabs -->
             <div x-data="{ activeTab: 'profile' }" class="max-w-2xl mx-auto">
                 <!-- Tab Navigation -->
-                <div class="border-b border-gray-200 -mx-4 px-4 sm:mx-0 sm:px-0">
-                    <nav class="-mb-px flex space-x-8 overflow-x-auto">
+                <div class="border-b border-gray-200">
+                    <nav class="-mb-px flex space-x-8">
                         <button @click="activeTab = 'profile'"
                                 :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'profile',
                                         'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'profile'}"
@@ -116,6 +97,12 @@
                                         'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'print_image'}"
                                 class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                             Print Image
+                        </button>
+                        <button @click="activeTab = 'dropbox'"
+                                :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'dropbox',
+                                        'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'dropbox'}"
+                                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                            Dropbox
                         </button>
                     </nav>
                 </div>
@@ -360,6 +347,39 @@
                         </div>
                     </form>
                 </div>
+
+                <!-- Dropbox Tab -->
+                <div x-show="activeTab === 'dropbox'" class="space-y-6 max-w-2xl mt-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        {% if print_settings.use_dropbox %}
+                            <div class="flex items-center text-green-600 mb-4">
+                                <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                </svg>
+                                <span class="font-medium">Dropbox connection is active</span>
+                            </div>
+                            {% if print_settings.dropbox_folder_path %}
+                                <p class="text-gray-600 mb-4">Dropbox Folder: {{ print_settings.dropbox_folder_path }}</p>
+                            {% endif %}
+                            <a href="{% url 'dashboard:dropbox_disconnect' %}" 
+                               class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+                                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                                Disconnect Dropbox
+                            </a>
+                        {% else %}
+                            <p class="text-gray-600 mb-4">Connect your Dropbox account to manage print images through Dropbox.</p>
+                            <a href="{% url 'dashboard:dropbox_auth' %}" 
+                               class="inline-flex items-center px-4 py-2 bg-[#0088CC] text-white rounded-md hover:bg-[#006DA3]">
+                                <svg class="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 0L6 4l6 4-6 4 6 4-6 4 6 4 6-4-6-4 6-4-6-4 6-4-6-4z"/>
+                                </svg>
+                                Connect to Dropbox
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -383,7 +403,7 @@
 </style>
 
 <script>
-document.getElementById('profileForm').addEventListener('submit', function(e) {
+document.getElementById('profileForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     
     fetch(this.action, {
@@ -395,127 +415,79 @@ document.getElementById('profileForm').addEventListener('submit', function(e) {
     })
     .then(response => response.json())
     .then(data => {
-        // Create message div
-        const messageDiv = document.createElement('div');
-        messageDiv.className = data.success ? 
-            'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-md shadow-lg z-50' :
-            'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-md shadow-lg z-50';
-        messageDiv.textContent = data.message;
-        document.body.appendChild(messageDiv);
-        
-        if (data.success && data.redirect) {
-            // Countdown and redirect
-            let seconds = 10;
-            const countdown = setInterval(() => {
-                seconds--;
-                if (seconds <= 0) {
-                    clearInterval(countdown);
+        if (data.success) {
+            showNotification(data.message, 'success');
+            if (data.redirect) {
+                setTimeout(() => {
                     window.location.href = data.redirect;
-                } else {
-                    messageDiv.textContent = `${data.message} (${seconds}s)`;
-                }
-            }, 1000);
+                }, 10000);
+            }
         } else {
-            // Remove message after 3 seconds for non-redirect messages
-            setTimeout(() => {
-                messageDiv.remove();
-            }, 3000);
+            showNotification(data.message, 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-md shadow-lg z-50';
-        messageDiv.textContent = 'An error occurred. Please try again.';
-        document.body.appendChild(messageDiv);
-        setTimeout(() => {
-            messageDiv.remove();
-        }, 3000);
+        showNotification('An error occurred. Please try again.', 'error');
     });
 });
 
-// Yeni passwordForm event listener'ı
-const passwordForm = document.getElementById('passwordForm');
-if (passwordForm) {
-    passwordForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Reset error messages
-        document.querySelectorAll('#passwordForm .text-red-600').forEach(el => el.classList.add('hidden'));
-        
-        const currentPassword = document.getElementById('current_password').value;
-        const newPassword = document.getElementById('new_password').value;
-        const confirmPassword = document.getElementById('confirm_password').value;
-        
-        let hasError = false;
-        
-        // Check if passwords match
-        if (newPassword !== confirmPassword) {
-            document.getElementById('confirm_password_error').textContent = 'Passwords do not match';
-            document.getElementById('confirm_password_error').classList.remove('hidden');
-            hasError = true;
-        }
-        
-        // Check password length
-        if (newPassword.length < 8) {
-            document.getElementById('new_password_error').textContent = 'Password must be at least 8 characters long';
-            document.getElementById('new_password_error').classList.remove('hidden');
-            hasError = true;
-        }
-        
-        if (!hasError) {
-            fetch(this.action, {
-                method: 'POST',
-                body: new FormData(this),
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+document.getElementById('passwordForm')?.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    document.querySelectorAll('#passwordForm .text-red-600').forEach(el => el.classList.add('hidden'));
+    
+    const currentPassword = document.getElementById('current_password').value;
+    const newPassword = document.getElementById('new_password').value;
+    const confirmPassword = document.getElementById('confirm_password').value;
+    
+    let hasError = false;
+    
+    if (newPassword !== confirmPassword) {
+        document.getElementById('confirm_password_error').textContent = 'Passwords do not match';
+        document.getElementById('confirm_password_error').classList.remove('hidden');
+        hasError = true;
+    }
+    
+    if (newPassword.length < 8) {
+        document.getElementById('new_password_error').textContent = 'Password must be at least 8 characters long';
+        document.getElementById('new_password_error').classList.remove('hidden');
+        hasError = true;
+    }
+    
+    if (!hasError) {
+        fetch(this.action, {
+            method: 'POST',
+            body: new FormData(this),
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showNotification('Password changed successfully', 'success');
+                this.reset();
+                if (data.redirect) {
+                    setTimeout(() => {
+                        window.location.href = data.redirect;
+                    }, 10000);
                 }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Show success message
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = 'rounded-md bg-green-50 p-4 mb-4';
-                    messageDiv.innerHTML = `
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm font-medium text-green-800">${data.message}</p>
-                            </div>
-                        </div>
-                    `;
-                    passwordForm.insertBefore(messageDiv, passwordForm.firstChild);
-                    
-                    // Clear form
-                    passwordForm.reset();
-                    
-                    // Redirect after 10 seconds
-                    if (data.redirect) {
-                        setTimeout(() => {
-                            window.location.href = data.redirect;
-                        }, 10000);
-                    }
-                } else {
-                    // Show error messages
-                    if (data.current_password_error) {
-                        document.getElementById('current_password_error').textContent = data.current_password_error;
-                        document.getElementById('current_password_error').classList.remove('hidden');
-                    }
-                    if (data.new_password_error) {
-                        document.getElementById('new_password_error').textContent = data.new_password_error;
-                        document.getElementById('new_password_error').classList.remove('hidden');
-                    }
+            } else {
+                if (data.current_password_error) {
+                    document.getElementById('current_password_error').textContent = data.current_password_error;
+                    document.getElementById('current_password_error').classList.remove('hidden');
                 }
-            });
-        }
-    });
-}
+                if (data.new_password_error) {
+                    document.getElementById('new_password_error').textContent = data.new_password_error;
+                    document.getElementById('new_password_error').classList.remove('hidden');
+                }
+            }
+        });
+    }
+});
 
+<<<<<<< HEAD
 // Dropbox toggle functionality
 document.getElementById('use_dropbox')?.addEventListener('change', function() {
     const dropboxSettings = document.getElementById('dropboxSettings');
@@ -527,6 +499,8 @@ document.getElementById('use_dropbox')?.addEventListener('change', function() {
 });
 
 // Print Settings form submission
+=======
+>>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
 document.getElementById('printSettingsForm')?.addEventListener('submit', function(e) {
     e.preventDefault();
     
@@ -539,6 +513,7 @@ document.getElementById('printSettingsForm')?.addEventListener('submit', functio
     })
     .then(response => response.json())
     .then(data => {
+<<<<<<< HEAD
         const messageDiv = document.createElement('div');
         messageDiv.className = data.status === 'success' ? 
             'fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-md shadow-lg z-50' :
@@ -551,17 +526,29 @@ document.getElementById('printSettingsForm')?.addEventListener('submit', functio
         setTimeout(() => {
             messageDiv.remove();
         }, 3000);
+=======
+        showNotification(
+            data.status === 'success' ? 'Settings saved successfully' : 'Error saving settings',
+            data.status === 'success' ? 'success' : 'error'
+        );
+>>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
     })
     .catch(error => {
         console.error('Error:', error);
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-md shadow-lg z-50';
-        messageDiv.textContent = 'An error occurred. Please try again.';
-        document.body.appendChild(messageDiv);
-        setTimeout(() => {
-            messageDiv.remove();
-        }, 3000);
+        showNotification('An error occurred. Please try again.', 'error');
     });
 });
+
+function showNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.className = `fixed top-4 right-4 px-6 py-4 rounded-md shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-500' : 'bg-red-500'
+    } text-white`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
 </script>
 {% endblock %} 

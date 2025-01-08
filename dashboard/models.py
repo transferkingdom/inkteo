@@ -95,6 +95,7 @@ class OrderItem(models.Model):
 
 class PrintImageSettings(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+<<<<<<< HEAD
     
     # Dropbox API settings
     dropbox_access_token = models.CharField(max_length=255, blank=True, null=True)
@@ -104,6 +105,18 @@ class PrintImageSettings(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+=======
+    print_folder_path = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Dropbox API ayarları
+    dropbox_access_token = models.CharField(max_length=255, blank=True, null=True)
+    dropbox_refresh_token = models.CharField(max_length=255, blank=True, null=True)
+    dropbox_token_expiry = models.DateTimeField(null=True, blank=True)
+    dropbox_folder_path = models.CharField(max_length=255, blank=True, null=True, default='/Print Images')
+    use_dropbox = models.BooleanField(default=False)
+>>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
 
     def __str__(self):
         return f"Print Settings for {self.user.email}"

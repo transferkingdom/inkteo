@@ -375,9 +375,18 @@ ORDERS_IMAGES_DIR = 'orders/images'
 ORDERS_RAW_DATA_DIR = 'orders/raw_data/%Y/%m/%d'
 
 # Dropbox API Settings
+<<<<<<< HEAD
 DROPBOX_APP_KEY = os.environ.get('DROPBOX_APP_KEY', '6j0fohrnyxu4o17')
 DROPBOX_APP_SECRET = os.environ.get('DROPBOX_APP_SECRET', '3p56cepqeng26qs')
 if DEBUG:
     DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL_LOCAL', 'http://localhost:8000/dashboard/settings/dropbox/callback')
 else:
     DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL', 'https://orders.inkteo.com/dashboard/settings/dropbox/callback')
+=======
+DROPBOX_APP_KEY = os.environ.get('DROPBOX_APP_KEY')
+DROPBOX_APP_SECRET = os.environ.get('DROPBOX_APP_SECRET')
+if DEBUG:
+    DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL_LOCAL')
+else:
+    DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL')
+>>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f

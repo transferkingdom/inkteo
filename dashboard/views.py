@@ -25,8 +25,13 @@ from datetime import date, datetime, timedelta
 import shutil
 from requests_oauthlib import OAuth2Session
 import dropbox
+<<<<<<< HEAD
 import requests
 from urllib.parse import urlencode
+=======
+from django.urls import reverse
+import io
+>>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
 
 # Configure logging
 logger = logging.getLogger('dashboard')
@@ -77,10 +82,11 @@ def settings_view(request):
     try:
         print_settings = PrintImageSettings.objects.get(user=request.user)
     except PrintImageSettings.DoesNotExist:
-        print_settings = None
+        print_settings = PrintImageSettings.objects.create(user=request.user)
     
     context = {
-        'print_settings': print_settings
+        'print_settings': print_settings,
+        'active_tab': 'settings'
     }
     
     return render(request, 'dashboard/settings.html', context)
@@ -521,6 +527,7 @@ def refresh_dropbox_token(settings):
         # Token yenileme isteği
         response = requests.post('https://api.dropboxapi.com/oauth2/token', data=data)
         
+<<<<<<< HEAD
         if response.status_code == 200:
             token_data = response.json()
             settings.dropbox_access_token = token_data.get('access_token')
@@ -532,6 +539,44 @@ def refresh_dropbox_token(settings):
             logger.error(f"Failed to refresh token: {response.text}")
             return False
             
+=======
+        # Her bir sipariş öğesi için print image ara
+        for order in batch.orders.all():
+            for item in order.items.all():
+                if not item.print_image:  # Eğer print image henüz bulunmamışsa
+                    logger.info(f"Searching print image for SKU: {item.sku}")
+                    
+                    # Print image'ı bul (yerel veya Dropbox)
+                    image_path = find_print_image(item.sku)
+                    
+                    if image_path:
+                        logger.info(f"Found print image: {image_path}")
+                        
+                        # Hedef dizin yolu
+                        target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'print_images')
+                        os.makedirs(target_dir, exist_ok=True)
+                        
+                        # Hedef dosya yolu
+                        target_path = os.path.join(target_dir, os.path.basename(image_path))
+                        
+                        try:
+                            # Dosyayı kopyala
+                            if not os.path.exists(target_path):
+                                shutil.copy2(image_path, target_path)
+                                logger.info(f"Copied print image to: {target_path}")
+                            
+                            # Veritabanında yolu güncelle
+                            relative_path = os.path.join('orders', 'images', str(batch.order_id), 'print_images', os.path.basename(image_path))
+                            item.print_image = relative_path
+                            item.save()
+                            logger.info(f"Updated database record with path: {relative_path}")
+                            
+                        except Exception as e:
+                            logger.error(f"Error copying file: {str(e)}")
+                    else:
+                        logger.warning(f"No print image found for SKU: {item.sku}")
+    
+>>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
     except Exception as e:
         logger.error(f"Error refreshing Dropbox token: {str(e)}")
         return False
@@ -691,8 +736,16 @@ def order_detail(request, order_id):
         
     except Exception as e:
         logger.error(f"Error in order detail: {str(e)}")
+<<<<<<< HEAD
         messages.error(request, "Error loading order details.")
         return redirect('dashboard:orders')
+=======
+    
+    return render(request, 'dashboard/orders/detail.html', {
+        'batch': batch,
+        'active_tab': 'orders'
+    })
+>>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
 
 @login_required
 def print_image_settings(request):
@@ -734,6 +787,7 @@ def print_image_settings(request):
             'use_dropbox': False
         })
 
+<<<<<<< HEAD
 def find_print_image(sku):
     """Find print image file by SKU"""
     settings = PrintImageSettings.objects.first()
@@ -816,5 +870,176 @@ def dropbox_disconnect(request):
         messages.error(request, 'Print settings not found.')
     except Exception as e:
         messages.error(request, f'Error disconnecting from Dropbox: {str(e)}')
+=======
+@login_required
+def select_print_folder(request):
+    """Print klasörü seçimi"""
+    if request.method == 'POST':
+        folder_path = request.POST.get('folder_path')
+        if folder_path:
+            settings = PrintImageSettings.objects.first()
+            if not settings:
+                settings = PrintImageSettings.objects.create()
+            settings.print_folder_path = folder_path
+            settings.save()
+            return JsonResponse({'status': 'success'})
+    return JsonResponse({'status': 'error'})
+
+def find_print_image_in_dropbox(dbx, sku, folder_path='/Print Images'):
+    """Dropbox'ta SKU'ya göre print image dosyasını bul"""
+    try:
+        # Dropbox klasörünü listele
+        result = dbx.files_list_folder(folder_path, recursive=True)
+        
+        # Dosyaları kontrol et
+        while True:
+            for entry in result.entries:
+                if isinstance(entry, dropbox.files.FileMetadata):
+                    if sku.lower() in entry.name.lower():
+                        return entry.path_display
+            
+            # Daha fazla sonuç varsa devam et
+            if result.has_more:
+                result = dbx.files_list_folder_continue(result.cursor)
+            else:
+                break
+                
+        return None
+        
+    except Exception as e:
+        logger.error(f"Dropbox search error: {str(e)}")
+        return None
+
+def download_from_dropbox(dbx, dropbox_path, local_path):
+    """Dropbox'tan dosyayı indir"""
+    try:
+        # Dizin yapısını oluştur
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        
+        # Dosyayı indir
+        with open(local_path, 'wb') as f:
+            metadata, response = dbx.files_download(dropbox_path)
+            f.write(response.content)
+            
+        return True
+        
+    except Exception as e:
+        logger.error(f"Dropbox download error: {str(e)}")
+        return False
+
+def find_print_image(sku):
+    """SKU'ya göre print image dosyasını bul"""
+    try:
+        # Önce yerel dizinde ara
+        settings = PrintImageSettings.objects.first()
+        if settings and settings.print_folder_path:
+            for root, dirs, files in os.walk(settings.print_folder_path):
+                for file in files:
+                    if sku.lower() in file.lower():
+                        return os.path.join(root, file)
+        
+        # Yerel dizinde bulunamazsa ve Dropbox bağlantısı varsa Dropbox'ta ara
+        if settings and settings.use_dropbox and settings.dropbox_access_token:
+            try:
+                # Dropbox client oluştur
+                dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                
+                # Dropbox'ta dosyayı ara
+                dropbox_path = find_print_image_in_dropbox(dbx, sku, settings.dropbox_folder_path)
+                if dropbox_path:
+                    # Yerel kayıt yolu oluştur
+                    local_path = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'print_images', os.path.basename(dropbox_path))
+                    
+                    # Dropbox'tan indir
+                    if download_from_dropbox(dbx, dropbox_path, local_path):
+                        return local_path
+                    
+            except Exception as e:
+                logger.error(f"Dropbox error: {str(e)}")
+        
+        return None
+        
+    except Exception as e:
+        logger.error(f"Find print image error: {str(e)}")
+        return None
+
+@login_required
+def dropbox_auth(request):
+    """Dropbox yetkilendirme başlatma view'ı"""
+    try:
+        # Dropbox OAuth2 flow başlat
+        oauth2_session = OAuth2Session(
+            django_settings.DROPBOX_APP_KEY,
+            redirect_uri=django_settings.DROPBOX_OAUTH_CALLBACK_URL,
+            scope=['files.content.read', 'files.content.write']
+        )
+        
+        authorization_url, state = oauth2_session.authorization_url(
+            'https://www.dropbox.com/oauth2/authorize'
+        )
+        
+        # State'i session'da sakla
+        request.session['dropbox_oauth_state'] = state
+        
+        return redirect(authorization_url)
+        
+    except Exception as e:
+        messages.error(request, f'Dropbox bağlantısı sırasında bir hata oluştu: {str(e)}')
+        return redirect('dashboard:settings')
+
+@login_required
+def dropbox_callback(request):
+    """Dropbox callback view'ı"""
+    try:
+        code = request.GET.get('code')
+        state = request.GET.get('state')
+        stored_state = request.session.get('dropbox_oauth_state')
+        
+        if not code:
+            messages.error(request, 'Dropbox yetkilendirme kodu alınamadı.')
+            return redirect('dashboard:settings')
+            
+        if state != stored_state:
+            messages.error(request, 'Güvenlik doğrulaması başarısız oldu.')
+            return redirect('dashboard:settings')
+            
+        # Token al
+        oauth2_session = OAuth2Session(
+            django_settings.DROPBOX_APP_KEY,
+            redirect_uri=django_settings.DROPBOX_OAUTH_CALLBACK_URL
+        )
+        
+        token = oauth2_session.fetch_token(
+            'https://api.dropbox.com/oauth2/token',
+            client_secret=django_settings.DROPBOX_APP_SECRET,
+            code=code
+        )
+        
+        # Token'ı kaydet
+        print_settings = PrintImageSettings.objects.get(user=request.user)
+        print_settings.dropbox_access_token = token['access_token']
+        print_settings.use_dropbox = True
+        print_settings.save()
+        
+        messages.success(request, 'Dropbox bağlantısı başarıyla kuruldu.')
+        return redirect('dashboard:settings')
+        
+    except Exception as e:
+        messages.error(request, f'Dropbox bağlantısı sırasında bir hata oluştu: {str(e)}')
+        return redirect('dashboard:settings')
+
+@login_required
+def dropbox_disconnect(request):
+    """Dropbox bağlantısını kesme view'ı"""
+    try:
+        print_settings = PrintImageSettings.objects.get(user=request.user)
+        print_settings.dropbox_access_token = ''
+        print_settings.use_dropbox = False
+        print_settings.save()
+        
+        messages.success(request, 'Dropbox bağlantısı başarıyla kesildi.')
+    except Exception as e:
+        messages.error(request, f'Dropbox bağlantısını keserken bir hata oluştu: {str(e)}')
+>>>>>>> 9df032bef5d97a8d6078ead9ca087434a48ae28f
     
     return redirect('dashboard:settings')
