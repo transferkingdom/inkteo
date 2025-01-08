@@ -570,7 +570,7 @@ def process_image_for_print(input_path, output_path, width=500):
                 print(f"Warning: Could not set output directory permissions: {str(e)}")
         print(f"Created/checked directory: {output_dir}")
 
-        # Resmi aç
+        # Resmi aç ve işle
         with Image.open(input_path) as img:
             # RGBA moduna çevir (PNG için)
             if img.mode != 'RGBA':
@@ -728,6 +728,7 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                 sku_path = os.path.join(sku_folder, f"{original_sku}.png")
                 print(f"Downloading to: {sku_path}")
                 
+                # Dropbox'tan indir
                 metadata, response = dbx.files_download(dropbox_path)
                 
                 # Önce geçici dosyaya kaydet
@@ -741,7 +742,7 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                 except Exception as e:
                     print(f"Warning: Could not set temp file permissions: {str(e)}")
                 
-                # PNG'ye dönüştür
+                # PNG'ye dönüştür ve SKU klasörüne kaydet
                 with Image.open(temp_path) as img:
                     if img.mode != 'RGBA':
                         img = img.convert('RGBA')
@@ -797,7 +798,7 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
             
             batch_path = os.path.join(batch_folder, f"{original_sku}.png")
             
-            # Resmi işle ve kaydet
+            # SKU klasöründeki resmi işle ve batch klasörüne kaydet
             if process_image_for_print(sku_path, batch_path):
                 print(f"Successfully processed image for batch {batch_id}, SKU {original_sku}")
                 return True
