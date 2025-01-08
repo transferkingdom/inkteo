@@ -11,7 +11,6 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 SECRET_KEY = os.getenv('SECRET_KEY', 'TKInkteo3506')
 
@@ -162,7 +161,7 @@ MEDIA_URL = '/media/'
 if DEBUG:
     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 else:
-    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'  # EasyPanel volume yolu
+    MEDIA_ROOT = '/etc/easypanel/projects/inkteo/inkteo/volumes/media'
 
 # Ensure media directories exist in both environments
 MEDIA_DIRS = [
