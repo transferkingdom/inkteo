@@ -98,12 +98,6 @@
                                 class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                             Print Image
                         </button>
-                        <button @click="activeTab = 'dropbox'"
-                                :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'dropbox',
-                                        'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'dropbox'}"
-                                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                            Dropbox
-                        </button>
                     </nav>
                 </div>
 
@@ -346,39 +340,6 @@
                             </button>
                         </div>
                     </form>
-                </div>
-
-                <!-- Dropbox Tab -->
-                <div x-show="activeTab === 'dropbox'" class="space-y-6 max-w-2xl mt-6">
-                    <div class="bg-white rounded-lg shadow p-6">
-                        {% if print_settings.use_dropbox %}
-                            <div class="flex items-center text-green-600 mb-4">
-                                <svg class="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                </svg>
-                                <span class="font-medium">Dropbox connection is active</span>
-                            </div>
-                            {% if print_settings.dropbox_folder_path %}
-                                <p class="text-gray-600 mb-4">Dropbox Folder: {{ print_settings.dropbox_folder_path }}</p>
-                            {% endif %}
-                            <a href="{% url 'dashboard:dropbox_disconnect' %}" 
-                               class="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
-                                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                                Disconnect Dropbox
-                            </a>
-                        {% else %}
-                            <p class="text-gray-600 mb-4">Connect your Dropbox account to manage print images through Dropbox.</p>
-                            <a href="{% url 'dashboard:dropbox_auth' %}" 
-                               class="inline-flex items-center px-4 py-2 bg-[#0088CC] text-white rounded-md hover:bg-[#006DA3]">
-                                <svg class="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M12 0L6 4l6 4-6 4 6 4-6 4 6 4 6-4-6-4 6-4-6-4 6-4-6-4z"/>
-                                </svg>
-                                Connect to Dropbox
-                            </a>
-                        {% endif %}
-                    </div>
                 </div>
             </div>
         </div>
