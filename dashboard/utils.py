@@ -1,12 +1,79 @@
 import os
 import PyPDF2
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.conf import settings as django_settings
 import json
 import requests
 from urllib.parse import urlparse
 from pathlib import Path
+from PIL import Image
+import dropbox
+import logging
+from .models import PrintImageSettings
+import traceback
+
+# Logger configuration
+logger = logging.getLogger('dashboard')
+
+def refresh_dropbox_token(settings):
+    """Dropbox access token'ı yenile"""
+    try:
+        if not settings.dropbox_refresh_token:
+            print("No refresh token available")
+            return False
+
+        # Token yenileme için gerekli parametreler
+        data = {
+            'grant_type': 'refresh_token',
+            'refresh_token': settings.dropbox_refresh_token,
+            'client_id': django_settings.DROPBOX_APP_KEY,
+            'client_secret': django_settings.DROPBOX_APP_SECRET
+        }
+
+        # Token yenileme isteği
+        response = requests.post('https://api.dropboxapi.com/oauth2/token', data=data)
+        
+        if response.status_code == 200:
+            token_data = response.json()
+            settings.dropbox_access_token = token_data.get('access_token')
+            settings.dropbox_token_expiry = datetime.now() + timedelta(seconds=token_data.get('expires_in', 14400))
+            settings.save()
+            print("Dropbox token refreshed successfully")
+            return True
+        else:
+            print(f"Failed to refresh token: {response.text}")
+            return False
+            
+    except Exception as e:
+        print(f"Error refreshing Dropbox token: {str(e)}")
+        return False
+
+# Ensure media directories exist
+def ensure_media_directories():
+    """Gerekli medya klasörlerinin varlığını kontrol et ve oluştur"""
+    try:
+        # Ana dizinleri oluştur
+        media_dirs = [
+            os.path.join(django_settings.MEDIA_ROOT, 'orders'),
+            os.path.join(django_settings.MEDIA_ROOT, 'orders', 'skufolder'),
+            os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images'),
+        ]
+        
+        for directory in media_dirs:
+            if not os.path.exists(directory):
+                os.makedirs(directory, exist_ok=True)
+                print(f"Created directory: {directory}")
+                try:
+                    os.chmod(directory, 0o755)
+                    print(f"Set permissions for directory: {directory}")
+                except Exception as e:
+                    print(f"Warning: Could not set directory permissions: {str(e)}")
+    except Exception as e:
+        print(f"Error creating media directories: {str(e)}")
+
+#İlk başta dizinleri oluştur
+ensure_media_directories()
 
 def extract_product_name(text_before_sku):
     """Extract product name"""
@@ -71,9 +138,9 @@ def save_product_image(image_url, order_id, sku):
             return ''
             
         # Dosya adını oluştur
-        file_name = f"{order_id}_{sku}.jpg"
-        relative_path = os.path.join('orders', 'images', str(order_id), 'product_images', file_name)
-        absolute_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+        file_name = f"{order_id}_{sku}.png"  # JPG yerine PNG kullan
+        relative_path = os.path.join('orders', 'images', str(order_id), file_name)
+        absolute_path = os.path.join(django_settings.MEDIA_ROOT, relative_path)
         
         # Dizin yapısını oluştur
         os.makedirs(os.path.dirname(absolute_path), exist_ok=True)
@@ -82,8 +149,20 @@ def save_product_image(image_url, order_id, sku):
         # Görseli indir
         response = requests.get(image_url)
         if response.status_code == 200:
-            with open(absolute_path, 'wb') as f:
+            # Önce geçici bir dosyaya kaydet
+            temp_path = absolute_path + '.temp'
+            with open(temp_path, 'wb') as f:
                 f.write(response.content)
+            
+            # PNG'ye dönüştür ve optimize et
+            with Image.open(temp_path) as img:
+                if img.mode != 'RGBA':
+                    img = img.convert('RGBA')
+                img.save(absolute_path, 'PNG', optimize=True)
+            
+            # Geçici dosyayı sil
+            os.remove(temp_path)
+            
             print(f"Product image kaydedildi: {absolute_path}")
             return relative_path
             
@@ -461,3 +540,229 @@ def extract_address(order_text):
     except Exception as e:
         print(f"Address extraction error: {str(e)}")
         return '' 
+
+def process_image_for_print(input_path, output_path, width=500):
+    """
+    Resmi işleyip belirtilen genişlikte ve orantılı yükseklikte PNG olarak kaydeder.
+    """
+    try:
+        print(f"Processing image from {input_path} to {output_path}")
+        
+        # Hedef klasörü oluştur
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        print(f"Created directory: {os.path.dirname(output_path)}")
+
+        # Resmi aç
+        with Image.open(input_path) as img:
+            # RGBA moduna çevir (PNG için)
+            if img.mode != 'RGBA':
+                img = img.convert('RGBA')
+
+            # Orijinal en-boy oranını koru
+            aspect_ratio = img.height / img.width
+            new_height = int(width * aspect_ratio)
+            print(f"Resizing image to {width}x{new_height}")
+
+            # Resmi yeniden boyutlandır
+            resized_img = img.resize((width, new_height), Image.Resampling.LANCZOS)
+
+            # Her zaman PNG olarak kaydet
+            output_path = os.path.splitext(output_path)[0] + '.png'
+            resized_img.save(output_path, 'PNG', optimize=True)
+            print(f"Saved processed image as PNG to {output_path}")
+
+            try:
+                # Dosya izinlerini ayarla
+                os.chmod(output_path, 0o644)
+                print(f"Set permissions for {output_path}")
+            except Exception as e:
+                print(f"Warning: Could not set file permissions: {str(e)}")
+
+        return True
+    except Exception as e:
+        print(f"Error processing image: {str(e)}")
+        return False
+
+def check_sku_image_exists(sku, batch_id=None):
+    """
+    SKU için resmin var olup olmadığını kontrol eder.
+    Hem skufolder hem de batch klasöründe kontrol yapar.
+    Tam eşleşme yapar (büyük/küçük harf duyarsız).
+    """
+    try:
+        print(f"Checking image existence for SKU: {sku}, Batch ID: {batch_id}")
+        
+        # SKU folder'daki dosyaları listele
+        sku_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'skufolder')
+        sku_exists = False
+        sku_path = None
+        
+        if os.path.exists(sku_folder):
+            # SKU'yu küçük harfe çevir
+            sku_lower = sku.lower()
+            
+            # Tam eşleşme kontrolü yap
+            target_file = os.path.join(sku_folder, f"{sku}.png")
+            target_file_lower = os.path.join(sku_folder, f"{sku_lower}.png")
+            
+            # Önce birebir dosya adını kontrol et
+            if os.path.isfile(target_file):
+                sku_exists = True
+                sku_path = target_file
+            # Sonra küçük harfli versiyonu kontrol et
+            elif os.path.isfile(target_file_lower):
+                sku_exists = True
+                sku_path = target_file_lower
+            
+        print(f"SKU image exists: {sku_exists}" + (f" at {sku_path}" if sku_exists else ""))
+
+        # Eğer batch_id verilmişse, batch klasöründeki işlenmiş resmi de kontrol et
+        if batch_id:
+            batch_path = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id), f"{sku}.png")
+            batch_exists = os.path.isfile(batch_path)
+            print(f"Batch image exists: {batch_exists}" + (f" at {batch_path}" if batch_exists else ""))
+            return sku_exists, batch_exists, sku_path, batch_path if batch_exists else None
+        
+        return sku_exists, False, sku_path, None
+    except Exception as e:
+        print(f"Error checking image existence: {str(e)}")
+        return False, False, None, None
+
+def find_dropbox_image(dbx, sku):
+    """Dropbox'ta SKU'ya göre resim dosyası arama (büyük/küçük harf duyarsız tam eşleşme)"""
+    try:
+        print(f"Searching for SKU in Dropbox: {sku}")
+        
+        # SKU'yu küçük harfe çevir
+        sku_lower = sku.lower()
+        
+        try:
+            # Arama parametrelerini hazırla
+            search_args = {
+                'path': '',  # Tüm Dropbox'ta ara
+                'query': f'"{sku_lower}.png"',  # Tam eşleşme için tırnak içinde
+                'mode': {
+                    '.tag': 'filename'  # Sadece dosya adında ara
+                }
+            }
+            
+            print(f"Search query: {search_args['query']}")
+            
+            # Dropbox API v2 ile arama yap
+            result = dbx.files_search(**search_args)
+            
+            # Sonuçları kontrol et
+            if result.matches:
+                for match in result.matches:
+                    if isinstance(match.metadata, dropbox.files.FileMetadata):
+                        file_name = os.path.splitext(match.metadata.name)[0].lower()  # Uzantıyı kaldır
+                        if file_name == sku_lower:  # Tam eşleşme kontrolü
+                            print(f"Found exact matching file: {match.metadata.path_display}")
+                            return match.metadata.path_display
+            
+            print(f"No exact matching PNG file found for SKU: {sku}")
+            return None
+            
+        except dropbox.exceptions.ApiError as e:
+            print(f"Dropbox API error: {str(e)}")
+            return None
+                
+    except Exception as e:
+        print(f"Dropbox search error for SKU {sku}: {str(e)}")
+        print(f"Error details: {traceback.format_exc()}")
+        return None
+
+def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
+    """Dropbox'tan resmi indir ve işle"""
+    try:
+        # Orijinal SKU'yu al
+        original_sku = os.path.splitext(os.path.basename(local_path))[0]
+        print(f"Processing SKU: {original_sku}")
+        
+        # 1. ÖNCE SKU folder'da tam eşleşme ara (orijinal SKU ile)
+        sku_exists, batch_exists, sku_path, batch_path = check_sku_image_exists(original_sku, batch_id)
+        print(f"Image check results - SKU exists: {sku_exists}, Batch exists: {batch_exists}")
+        
+        # 2. SKU folder'da yoksa, Dropbox'tan indir
+        if not sku_exists:
+            print(f"SKU image does not exist in SKU folder, searching in Dropbox")
+            # Dropbox'ta tam eşleşme ara
+            dropbox_path = find_dropbox_image(dbx, original_sku)
+            if not dropbox_path:
+                print(f"No exact matching image found in Dropbox for SKU: {original_sku}")
+                return False
+                
+            print(f"Found exact matching image in Dropbox: {dropbox_path}")
+            
+            try:
+                # SKU folder için hedef klasörü oluştur
+                sku_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'skufolder')
+                os.makedirs(sku_folder, exist_ok=True)
+                print(f"Created SKU folder: {sku_folder}")
+                
+                # Orijinal SKU adıyla kaydet
+                sku_path = os.path.join(sku_folder, f"{original_sku}.png")
+                print(f"Downloading to: {sku_path}")
+                
+                metadata, response = dbx.files_download(dropbox_path)
+                
+                # Önce geçici dosyaya kaydet
+                temp_path = sku_path + '.temp'
+                with open(temp_path, 'wb') as f:
+                    f.write(response.content)
+                
+                # PNG'ye dönüştür
+                with Image.open(temp_path) as img:
+                    if img.mode != 'RGBA':
+                        img = img.convert('RGBA')
+                    img.save(sku_path, 'PNG', optimize=True)
+                
+                # Geçici dosyayı sil
+                os.remove(temp_path)
+                print(f"Downloaded and converted image to PNG at {sku_path}")
+                
+                try:
+                    # Dosya izinlerini ayarla
+                    os.chmod(sku_path, 0o644)
+                    print(f"Set permissions for {sku_path}")
+                except Exception as e:
+                    print(f"Warning: Could not set file permissions: {str(e)}")
+                
+                # SKU resmi başarıyla indirildi
+                sku_exists = True
+                
+            except dropbox.exceptions.AuthError:
+                print("Dropbox authentication error, attempting to refresh token")
+                # Token süresi dolmuşsa yenilemeyi dene
+                settings = PrintImageSettings.objects.first()
+                if refresh_dropbox_token(settings):
+                    # Yeni token ile yeni bir Dropbox client oluştur
+                    dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                    # İndirmeyi tekrar dene
+                    return download_dropbox_image(dbx, dropbox_path, local_path, batch_id)
+                else:
+                    print("Failed to refresh token")
+                    return False
+        else:
+            print(f"SKU image already exists at {sku_path}")
+        
+        # 3. Batch klasörü için resmi işle (eğer gerekiyorsa)
+        if batch_id and not batch_exists and sku_exists:
+            print(f"Processing image for batch {batch_id}")
+            # Batch klasörü için hedef yolu oluştur (orijinal SKU adını kullan)
+            batch_path = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id), f"{original_sku}.png")
+            
+            # Resmi işle ve kaydet
+            if process_image_for_print(sku_path, batch_path):
+                print(f"Successfully processed image for batch {batch_id}, SKU {original_sku}")
+                return True
+            else:
+                print(f"Failed to process image for batch {batch_id}, SKU {original_sku}")
+                return False
+        
+        return True
+            
+    except Exception as e:
+        print(f"Dropbox download error: {str(e)}")
+        print(f"Error details: {traceback.format_exc()}")
+        return False 
