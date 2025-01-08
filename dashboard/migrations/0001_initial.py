@@ -16,19 +16,6 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='SearchPattern',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('pattern_type', models.CharField(choices=[('size', 'Size Pattern'), ('color', 'Color Pattern')], max_length=20)),
-                ('pattern', models.CharField(max_length=100)),
-                ('is_active', models.BooleanField(default=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-            ],
-            options={
-                'ordering': ['pattern_type', 'pattern'],
-            },
-        ),
-        migrations.CreateModel(
             name='BatchOrder',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
@@ -43,6 +30,38 @@ class Migration(migrations.Migration):
             ],
             options={
                 'ordering': ['-upload_date'],
+            },
+        ),
+        migrations.CreateModel(
+            name='SearchPattern',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('pattern_type', models.CharField(choices=[('size', 'Size Pattern'), ('color', 'Color Pattern')], max_length=20)),
+                ('pattern', models.CharField(max_length=100)),
+                ('is_active', models.BooleanField(default=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+            ],
+            options={
+                'ordering': ['pattern_type', 'pattern'],
+            },
+        ),
+        migrations.CreateModel(
+            name='PrintImageSettings',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('print_folder_path', models.CharField(blank=True, max_length=255, null=True)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('dropbox_access_token', models.CharField(blank=True, max_length=255, null=True)),
+                ('dropbox_refresh_token', models.CharField(blank=True, max_length=255, null=True)),
+                ('dropbox_token_expiry', models.DateTimeField(blank=True, null=True)),
+                ('dropbox_folder_path', models.CharField(blank=True, default='/Print Images', max_length=255, null=True)),
+                ('use_dropbox', models.BooleanField(default=False)),
+                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'verbose_name': 'Print Image Settings',
+                'verbose_name_plural': 'Print Image Settings',
             },
         ),
         migrations.CreateModel(
@@ -79,25 +98,6 @@ class Migration(migrations.Migration):
             ],
             options={
                 'ordering': ['id'],
-            },
-        ),
-        migrations.CreateModel(
-            name='PrintImageSettings',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('print_folder_path', models.CharField(blank=True, max_length=255, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('dropbox_access_token', models.CharField(blank=True, max_length=255, null=True)),
-                ('dropbox_refresh_token', models.CharField(blank=True, max_length=255, null=True)),
-                ('dropbox_token_expiry', models.DateTimeField(blank=True, null=True)),
-                ('dropbox_folder_path', models.CharField(blank=True, default='/Print Images', max_length=255, null=True)),
-                ('use_dropbox', models.BooleanField(default=False)),
-                ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL)),
-            ],
-            options={
-                'verbose_name': 'Print Image Settings',
-                'verbose_name_plural': 'Print Image Settings',
             },
         ),
     ]

@@ -718,8 +718,8 @@ def find_dropbox_image(dbx, sku):
 def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
     """Dropbox'tan resmi indir ve işle"""
     try:
-        # Orijinal SKU'yu al
-        original_sku = os.path.splitext(os.path.basename(local_path))[0]
+        # Orijinal SKU'yu al ve büyük harfe çevir
+        original_sku = os.path.splitext(os.path.basename(local_path))[0].upper()
         print(f"Processing SKU: {original_sku}")
         
         # 1. ÖNCE SKU folder'da tam eşleşme ara (orijinal SKU ile)
@@ -748,7 +748,7 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                         print(f"Warning: Could not set skufolder permissions: {str(e)}")
                 print(f"Created/checked SKU folder: {sku_folder}")
                 
-                # Orijinal SKU adıyla kaydet
+                # Orijinal SKU adıyla kaydet (büyük harfle)
                 sku_path = os.path.join(sku_folder, f"{original_sku}.png")
                 print(f"Downloading to: {sku_path}")
                 
@@ -786,8 +786,8 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                         print(f"Set permissions for {sku_path}")
                     except Exception as e:
                         print(f"Warning: Could not set file permissions: {str(e)}")
-                    
-                    #�ndirilen dosyanın varlığını kontrol et
+                        
+                    #İndirilen dosyanın varlığını kontrol et
                     if os.path.isfile(sku_path):
                         print(f"Successfully downloaded and saved image to {sku_path}")
                         sku_exists = True
@@ -810,7 +810,7 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                     print(f"Error downloading/saving image: {str(e)}")
                     print(f"Error details: {traceback.format_exc()}")
                     return False
-                
+                    
             except Exception as e:
                 print(f"Error in SKU folder operations: {str(e)}")
                 print(f"Error details: {traceback.format_exc()}")

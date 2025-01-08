@@ -1,6 +1,6 @@
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'volumes/inkteo-media')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'volumes/media')
 
 # Static files
 STATIC_URL = '/static/'
