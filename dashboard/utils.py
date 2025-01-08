@@ -65,14 +65,26 @@ def ensure_media_directories():
                 os.makedirs(directory, exist_ok=True)
                 print(f"Created directory: {directory}")
                 try:
-                    os.chmod(directory, 0o755)
+                    # Web sunucusu için uygun izinler
+                    os.chmod(directory, 0o775)
                     print(f"Set permissions for directory: {directory}")
                 except Exception as e:
                     print(f"Warning: Could not set directory permissions: {str(e)}")
+                    
+            # Dizin varsa bile izinleri kontrol et ve güncelle
+            try:
+                current_permissions = os.stat(directory).st_mode & 0o777
+                if current_permissions != 0o775:
+                    os.chmod(directory, 0o775)
+                    print(f"Updated permissions for existing directory: {directory}")
+            except Exception as e:
+                print(f"Warning: Could not update directory permissions: {str(e)}")
+                
     except Exception as e:
         print(f"Error creating media directories: {str(e)}")
+        print(f"Error details: {traceback.format_exc()}")
 
-#İlk başta dizinleri oluştur
+# Django başlangıcında dizinleri oluştur
 ensure_media_directories()
 
 def extract_product_name(text_before_sku):
@@ -549,8 +561,14 @@ def process_image_for_print(input_path, output_path, width=500):
         print(f"Processing image from {input_path} to {output_path}")
         
         # Hedef klasörü oluştur
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        print(f"Created directory: {os.path.dirname(output_path)}")
+        output_dir = os.path.dirname(output_path)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+            try:
+                os.chmod(output_dir, 0o775)
+            except Exception as e:
+                print(f"Warning: Could not set output directory permissions: {str(e)}")
+        print(f"Created/checked directory: {output_dir}")
 
         # Resmi aç
         with Image.open(input_path) as img:
@@ -572,8 +590,8 @@ def process_image_for_print(input_path, output_path, width=500):
             print(f"Saved processed image as PNG to {output_path}")
 
             try:
-                # Dosya izinlerini ayarla
-                os.chmod(output_path, 0o644)
+                # Web sunucusu için uygun dosya izinlerini ayarla
+                os.chmod(output_path, 0o664)
                 print(f"Set permissions for {output_path}")
             except Exception as e:
                 print(f"Warning: Could not set file permissions: {str(e)}")
@@ -581,6 +599,7 @@ def process_image_for_print(input_path, output_path, width=500):
         return True
     except Exception as e:
         print(f"Error processing image: {str(e)}")
+        print(f"Error details: {traceback.format_exc()}")
         return False
 
 def check_sku_image_exists(sku, batch_id=None):
@@ -695,10 +714,15 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
             print(f"Found exact matching image in Dropbox: {dropbox_path}")
             
             try:
-                # SKU folder için hedef klasörü oluştur
+                # SKU folder için hedef klasörü oluştur ve izinleri ayarla
                 sku_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'skufolder')
-                os.makedirs(sku_folder, exist_ok=True)
-                print(f"Created SKU folder: {sku_folder}")
+                if not os.path.exists(sku_folder):
+                    os.makedirs(sku_folder, exist_ok=True)
+                    try:
+                        os.chmod(sku_folder, 0o775)
+                    except Exception as e:
+                        print(f"Warning: Could not set skufolder permissions: {str(e)}")
+                print(f"Created/checked SKU folder: {sku_folder}")
                 
                 # Orijinal SKU adıyla kaydet
                 sku_path = os.path.join(sku_folder, f"{original_sku}.png")
@@ -711,6 +735,12 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                 with open(temp_path, 'wb') as f:
                     f.write(response.content)
                 
+                try:
+                    # Geçici dosya izinlerini ayarla
+                    os.chmod(temp_path, 0o664)
+                except Exception as e:
+                    print(f"Warning: Could not set temp file permissions: {str(e)}")
+                
                 # PNG'ye dönüştür
                 with Image.open(temp_path) as img:
                     if img.mode != 'RGBA':
@@ -718,12 +748,15 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                     img.save(sku_path, 'PNG', optimize=True)
                 
                 # Geçici dosyayı sil
-                os.remove(temp_path)
+                try:
+                    os.remove(temp_path)
+                except Exception as e:
+                    print(f"Warning: Could not delete temp file: {str(e)}")
                 print(f"Downloaded and converted image to PNG at {sku_path}")
                 
                 try:
-                    # Dosya izinlerini ayarla
-                    os.chmod(sku_path, 0o644)
+                    # Dosya izinlerini web sunucusu için uygun şekilde ayarla
+                    os.chmod(sku_path, 0o664)
                     print(f"Set permissions for {sku_path}")
                 except Exception as e:
                     print(f"Warning: Could not set file permissions: {str(e)}")
@@ -743,6 +776,10 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
                 else:
                     print("Failed to refresh token")
                     return False
+            except Exception as e:
+                print(f"Error downloading/saving image: {str(e)}")
+                print(f"Error details: {traceback.format_exc()}")
+                return False
         else:
             print(f"SKU image already exists at {sku_path}")
         
@@ -750,7 +787,15 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
         if batch_id and not batch_exists and sku_exists:
             print(f"Processing image for batch {batch_id}")
             # Batch klasörü için hedef yolu oluştur (orijinal SKU adını kullan)
-            batch_path = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id), f"{original_sku}.png")
+            batch_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id))
+            if not os.path.exists(batch_folder):
+                os.makedirs(batch_folder, exist_ok=True)
+                try:
+                    os.chmod(batch_folder, 0o775)
+                except Exception as e:
+                    print(f"Warning: Could not set batch folder permissions: {str(e)}")
+            
+            batch_path = os.path.join(batch_folder, f"{original_sku}.png")
             
             # Resmi işle ve kaydet
             if process_image_for_print(sku_path, batch_path):
