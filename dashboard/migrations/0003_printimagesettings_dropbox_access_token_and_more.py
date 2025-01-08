@@ -2,7 +2,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ('dashboard', '0002_initial'),
+        ('dashboard', '0002_alter_batchorder_pdf_file'),
     ]
 
     operations = [
