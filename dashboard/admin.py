@@ -34,5 +34,7 @@ class OrderItemAdmin(admin.ModelAdmin):
 
 @admin.register(PrintImageSettings)
 class PrintImageSettingsAdmin(admin.ModelAdmin):
-    list_display = ('print_folder_path', 'created_at', 'updated_at')
-    readonly_fields = ('created_at', 'updated_at')
+    list_display = ['user', 'use_dropbox', 'created_at', 'updated_at']
+    list_filter = ['use_dropbox']
+    search_fields = ['user__email']
+    readonly_fields = ['created_at', 'updated_at']

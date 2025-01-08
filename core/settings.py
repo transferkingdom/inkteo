@@ -373,3 +373,11 @@ ACCOUNT_PASSWORD_RESET_VERIFY_EMAIL = False
 ORDERS_PDF_DIR = 'orders/pdfs/%Y/%m/%d'
 ORDERS_IMAGES_DIR = 'orders/images'
 ORDERS_RAW_DATA_DIR = 'orders/raw_data/%Y/%m/%d'
+
+# Dropbox API Settings
+DROPBOX_APP_KEY = os.environ.get('DROPBOX_APP_KEY', '6j0fohrnyxu4o17')
+DROPBOX_APP_SECRET = os.environ.get('DROPBOX_APP_SECRET', '3p56cepqeng26qs')
+if DEBUG:
+    DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL_LOCAL', 'http://localhost:8000/dashboard/settings/dropbox/callback')
+else:
+    DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL', 'https://orders.inkteo.com/dashboard/settings/dropbox/callback')

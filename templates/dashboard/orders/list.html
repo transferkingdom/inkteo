@@ -49,28 +49,32 @@
             <tbody class="divide-y divide-gray-200">
                 {% for batch in batches %}
                 <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <a href="{% url 'dashboard:order_detail' batch.order_id %}" 
-                           class="text-blue-600 hover:text-blue-900">
-                            {{ batch.order_id }}
-                        </a>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-[#0088CC]">
+                        <a href="{% url 'dashboard:order_detail' order_id=batch.order_id %}">{{ batch.order_id }}</a>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {{ batch.upload_date|date:"Y-m-d H:i" }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {{ batch.total_orders }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {{ batch.total_items }}
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                            {% if batch.status == 'completed' %}bg-green-100 text-green-800
-                            {% elif batch.status == 'error' %}bg-red-100 text-red-800
-                            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
-                            {{ batch.status|title }}
-                        </span>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if batch.status == 'completed' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                Completed
+                            </span>
+                        {% elif batch.status == 'processing' %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                Processing
+                            </span>
+                        {% else %}
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                Error
+                            </span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

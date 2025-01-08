@@ -21,8 +21,12 @@ from django.core.exceptions import ValidationError
 from .models import BatchOrder, OrderDetail, OrderItem, PrintImageSettings
 from .utils import generate_order_id, extract_order_data
 from django.core.serializers.json import DjangoJSONEncoder
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import shutil
+from requests_oauthlib import OAuth2Session
+import dropbox
+import requests
+from urllib.parse import urlencode
 
 # Configure logging
 logger = logging.getLogger('dashboard')
@@ -305,7 +309,7 @@ def change_password(request):
     return JsonResponse({'success': False, 'message': 'Invalid request method'})
 
 @login_required
-def order_list(request):
+def orders(request):
     """Orders ana sayfası"""
     batches = BatchOrder.objects.all()
     context = {
@@ -317,15 +321,8 @@ def order_list(request):
 @login_required
 def upload_orders(request):
     """PDF upload view"""
-    print("Upload orders view called")
-    print("Request method:", request.method)
-    print("Files:", request.FILES)
-    print("POST data:", request.POST)
-    print("MEDIA_ROOT:", django_settings.MEDIA_ROOT)  # django_settings kullan
-
     if request.method == 'POST':
         if 'pdf_file' not in request.FILES:
-            print("No PDF file in request")
             return JsonResponse({
                 'status': 'error',
                 'message': 'No PDF file uploaded'
@@ -333,7 +330,6 @@ def upload_orders(request):
 
         try:
             pdf_file = request.FILES['pdf_file']
-            print(f"Processing file: {pdf_file.name}, size: {pdf_file.size}")
             
             if not pdf_file.name.endswith('.pdf'):
                 return JsonResponse({
@@ -346,35 +342,28 @@ def upload_orders(request):
                 order_id=generate_order_id(),
                 status='processing'
             )
-            print(f"Created batch order: {batch.order_id}")
 
             try:
-                # Önce PDF dosyasını kaydet
+                # PDF dosyasını kaydet
                 pdf_path = os.path.join('orders', 'pdfs', str(batch.order_id), pdf_file.name)
-                full_path = os.path.join(django_settings.MEDIA_ROOT, pdf_path)  # django_settings kullan
-                print(f"PDF will be saved to: {full_path}")
+                full_path = os.path.join(django_settings.MEDIA_ROOT, pdf_path)
                 
                 # Dizin yapısını oluştur
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
-                print(f"Directory created: {os.path.dirname(full_path)}")  # Debug için dizin yolunu yazdır
                 
                 # Dosyayı kaydet
                 with open(full_path, 'wb+') as destination:
                     for chunk in pdf_file.chunks():
                         destination.write(chunk)
-                print("PDF file saved successfully")  # Debug için kayıt durumunu yazdır
                 
                 # PDF dosya yolunu BatchOrder'a kaydet
                 batch.pdf_file = pdf_path
                 batch.save()
-                print(f"PDF path saved to batch: {pdf_path}")  # Debug için kaydedilen yolu yazdır
 
-                # Şimdi kaydedilen dosyayı işle
-                print(f"Starting PDF processing from: {full_path}")  # Debug için işleme başlangıcını yazdır
+                # PDF'i işle
                 orders_data = extract_order_data(full_path)
-                print(f"Extracted {len(orders_data)} orders from PDF")
                 
-                # Save raw data - convert datetime objects to string
+                # Save raw data
                 serializable_data = []
                 for order in orders_data:
                     order_copy = order.copy()
@@ -388,8 +377,10 @@ def upload_orders(request):
                 
                 # Process orders
                 total_items = 0
+                processed_skus = set()  # İşlenmiş SKU'ları takip etmek için
+
                 for order_data in orders_data:
-                    # Create order with only available fields
+                    # Create order
                     order_fields = {
                         'batch': batch,
                         'etsy_order_number': order_data['order_number'],
@@ -405,13 +396,12 @@ def upload_orders(request):
                     
                     # Process items
                     for item in order_data['items']:
-                        # Create item with only available fields
+                        # Create item
                         item_fields = {
                             'order': order,
-                            'sku': item['sku']  # SKU is required
+                            'sku': item['sku']
                         }
                         
-                        # Add other fields only if they exist
                         if 'name' in item:
                             item_fields['name'] = item['name']
                         if 'quantity' in item:
@@ -429,15 +419,72 @@ def upload_orders(request):
                             item_fields['image'] = item['image']
                             
                         OrderItem.objects.create(**item_fields)
+                        processed_skus.add(item['sku'])  # SKU'yu işlenmiş olarak işaretle
 
                 batch.total_items = total_items
                 batch.status = 'completed'
                 batch.save()
 
+                # Dropbox'tan resimleri indir
+                settings = PrintImageSettings.objects.filter(user=request.user).first()
+                if settings and settings.use_dropbox:
+                    if not settings.dropbox_access_token:
+                        return JsonResponse({
+                            'status': 'warning',
+                            'message': 'PDF uploaded successfully but no Dropbox connection found. Please check your Dropbox connection in Settings.'
+                        })
+                    
+                    try:
+                        # Dropbox client oluştur
+                        dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                        
+                        # Her bir benzersiz SKU için resim indir
+                        for sku in processed_skus:
+                            # Dropbox'ta resmi ara
+                            dropbox_path = find_dropbox_image(dbx, sku)
+                            if dropbox_path:
+                                # Hedef dosya yolunu oluştur
+                                filename = os.path.basename(dropbox_path)
+                                target_path = os.path.join(
+                                    django_settings.MEDIA_ROOT,
+                                    'orders',
+                                    'images',
+                                    str(batch.order_id),
+                                    filename
+                                )
+                                
+                                # Resmi indir
+                                if download_dropbox_image(dbx, dropbox_path, target_path):
+                                    # Veritabanını güncelle - aynı SKU'ya sahip tüm öğeler için
+                                    relative_path = os.path.join(
+                                        'orders',
+                                        'images',
+                                        str(batch.order_id),
+                                        filename
+                                    )
+                                    OrderItem.objects.filter(
+                                        order__batch=batch,
+                                        sku=sku
+                                    ).update(print_image=relative_path)
+                                    
+                                    logger.info(f"Print image downloaded for SKU {sku}: {filename}")
+                    
+                    except dropbox.exceptions.AuthError:
+                        logger.error("Dropbox authentication error")
+                        return JsonResponse({
+                            'status': 'warning',
+                            'message': 'PDF uploaded successfully but there was an error with Dropbox connection. Please refresh your Dropbox connection in Settings (Disconnect and connect again).'
+                        })
+                    except Exception as e:
+                        logger.error(f"Dropbox error: {str(e)}")
+                        return JsonResponse({
+                            'status': 'warning',
+                            'message': f'PDF uploaded successfully but there was an error downloading images from Dropbox: {str(e)}'
+                        })
+
                 return JsonResponse({'status': 'success'})
 
             except Exception as e:
-                print(f"Error processing PDF: {str(e)}")
                 batch.status = 'error'
                 batch.save()
                 return JsonResponse({
@@ -446,7 +493,6 @@ def upload_orders(request):
                 })
 
         except Exception as e:
-            print(f"Error uploading file: {str(e)}")
             return JsonResponse({
                 'status': 'error',
                 'message': f'Error uploading file: {str(e)}'
@@ -457,237 +503,212 @@ def upload_orders(request):
         'message': 'Invalid request method'
     }, status=400)
 
-@login_required
-def order_detail(request, order_id):
-    """Batch detay sayfası"""
-    batch = get_object_or_404(BatchOrder, order_id=order_id)
-    
+def refresh_dropbox_token(settings):
+    """Dropbox access token'ı yenile"""
     try:
-        logger.info("\n========== PRINT IMAGE SEARCH STARTED ==========")
-        logger.info(f"Batch ID: {batch.order_id}")
+        if not settings.dropbox_refresh_token:
+            logger.error("No refresh token available")
+            return False
+
+        # Token yenileme için gerekli parametreler
+        data = {
+            'grant_type': 'refresh_token',
+            'refresh_token': settings.dropbox_refresh_token,
+            'client_id': django_settings.DROPBOX_APP_KEY,
+            'client_secret': django_settings.DROPBOX_APP_SECRET
+        }
+
+        # Token yenileme isteği
+        response = requests.post('https://api.dropboxapi.com/oauth2/token', data=data)
         
-        # Print klasörünü kontrol et
-        try:
-            print_settings = PrintImageSettings.objects.get(user=request.user)
-            windows_path = print_settings.print_folder_path
-            
-            if not windows_path:
-                logger.warning("Print folder path is empty in settings")
-                return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
-            
-            # Ortama göre yolu ayarla
-            if not django_settings.DEBUG:  # Production ortamı
-                print_folder = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
-                logger.info(f"Using Docker volume path: {print_folder}")
-                
-                # Docker volume'da klasör yoksa oluştur
-                if not os.path.exists(print_folder):
-                    os.makedirs(print_folder, mode=0o755, exist_ok=True)
-                    logger.info(f"Created Docker volume directory: {print_folder}")
-                
-                # Windows'tan resimleri kopyala
-                try:
-                    # Olası mount noktalarını kontrol et
-                    mount_points = [
-                        '/mnt/c',
-                        '/c',
-                        '/run/desktop/mnt/host/c',
-                        '/run/user/1000/gvfs/smb-share:server=localhost,share=c',
-                        '/host/c'
-                    ]
-                    
-                    source_path = None
-                    for mount in mount_points:
-                        test_path = os.path.join(mount, windows_path[3:].replace('\\', '/'))
-                        logger.info(f"Checking mount point: {test_path}")
-                        if os.path.exists(mount):
-                            source_path = test_path
-                            logger.info(f"Found valid mount point: {mount}")
-                            break
-                    
-                    if source_path and os.path.exists(source_path):
-                        logger.info(f"Source path exists: {source_path}")
-                        logger.info(f"Source path contents: {os.listdir(source_path)}")
-                        
-                        for root, dirs, files in os.walk(source_path):
-                            for file in files:
-                                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                    source_file = os.path.join(root, file)
-                                    target_file = os.path.join(print_folder, file)
-                                    
-                                    try:
-                                        if not os.path.exists(target_file):
-                                            logger.info(f"Copying {source_file} to {target_file}")
-                                            shutil.copy2(source_file, target_file)
-                                            os.chmod(target_file, 0o644)
-                                            logger.info(f"Successfully copied {file}")
-                                    except Exception as e:
-                                        logger.error(f"Error copying {file}: {str(e)}")
-                                        logger.error(f"Full error: {traceback.format_exc()}")
-                    else:
-                        logger.warning(f"No valid source path found")
-                        
-                except Exception as e:
-                    logger.error(f"Error copying files to Docker volume: {str(e)}")
-                    logger.error(f"Full error: {traceback.format_exc()}")
-            else:  # Local ortam
-                print_folder = windows_path
-                logger.info(f"Using local path: {print_folder}")
-            
-            # Dizin varlığını kontrol et
-            if not os.path.exists(print_folder):
-                logger.warning(f"Print folder does not exist: {print_folder}")
-                return render(request, 'dashboard/orders/detail.html', {'batch': batch, 'active_tab': 'orders'})
-            
-            logger.info(f"Print folder found: {print_folder}")
-            logger.info(f"Print folder contents: {os.listdir(print_folder)}")
-            
-            # Print klasöründeki tüm dosyaları listele
-            all_files = []
-            try:
-                for root, dirs, files in os.walk(print_folder):
-                    for file in files:
-                        if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                            all_files.append(os.path.join(root, file))
-                
-                logger.info(f"Total image files found in print folder: {len(all_files)}")
-                logger.info("Image files:")
-                for file in all_files:
-                    logger.info(f"- {file}")
-            except Exception as e:
-                logger.error(f"Error listing files: {str(e)}")
-                logger.error(f"Full error: {traceback.format_exc()}")
-            
-            # İşlenmiş SKU'ları takip et
-            processed_skus = set()
-            not_found_skus = set()
-            found_matches = {}
-            
-            # Siparişleri işle
-            logger.info("\n---------- PROCESSING ORDERS ----------")
-            for order in batch.orders.all():
-                logger.info(f"\nProcessing order: {order.etsy_order_number}")
-                
-                for item in order.items.all():
-                    if item.sku in processed_skus:
-                        continue
-                    
-                    processed_skus.add(item.sku)
-                    logger.info(f"\nLooking for SKU: {item.sku}")
-                    
-                    # Print klasöründe resmi ara
-                    found_match = False
-                    try:
-                        for root, dirs, files in os.walk(print_folder):
-                            logger.info(f"Searching in directory: {root}")
-                            logger.info(f"Files in directory: {files}")
-                            
-                            for file in files:
-                                if file.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                    file_name = os.path.splitext(file)[0].lower()
-                                    search_sku = item.sku.lower().strip()
-                                    
-                                    logger.info(f"Comparing file '{file_name}' with SKU '{search_sku}'")
-                                    
-                                    if search_sku == file_name or file_name.startswith(f"{search_sku}-"):
-                                        source_path = os.path.join(root, file)
-                                        logger.info(f"Found matching file: {file}")
-                                        logger.info(f"Full path: {source_path}")
-                                        
-                                        file_extension = os.path.splitext(file)[1]
-                                        target_filename = f"{item.sku}{file_extension}"
-                                        
-                                        # Hedef dizini oluştur
-                                        target_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id))
-                                        os.makedirs(target_dir, mode=0o755, exist_ok=True)
-                                        logger.info(f"Created target directory: {target_dir}")
-                                        
-                                        target_path = os.path.join(target_dir, target_filename)
-                                        logger.info(f"Target path: {target_path}")
-                                        
-                                        try:
-                                            # Dosyayı kopyala
-                                            shutil.copy2(source_path, target_path)
-                                            os.chmod(target_path, 0o644)
-                                            logger.info("File copied successfully")
-                                            
-                                            # Veritabanını güncelle
-                                            relative_path = os.path.join('orders', 'images', str(batch.order_id), target_filename)
-                                            
-                                            # Aynı SKU'ya sahip tüm öğeleri güncelle
-                                            OrderItem.objects.filter(
-                                                order__batch=batch,
-                                                sku=item.sku
-                                            ).update(print_image=relative_path)
-                                            
-                                            found_match = True
-                                            found_matches[item.sku] = file
-                                            logger.info("Database updated successfully")
-                                            break
-                                            
-                                        except Exception as e:
-                                            logger.error(f"Failed to copy file: {str(e)}")
-                                            logger.error(f"Full error: {traceback.format_exc()}")
-                                            continue
-                            
-                            if found_match:
-                                break
-                    except Exception as e:
-                        logger.error(f"Error searching for SKU {item.sku}: {str(e)}")
-                        logger.error(f"Full error: {traceback.format_exc()}")
-                    
-                    if not found_match:
-                        not_found_skus.add(item.sku)
-                        logger.warning(f"No matching file found for SKU: {item.sku}")
-            
-            # Özet rapor
-            logger.info("\n========== PRINT IMAGE SEARCH SUMMARY ==========")
-            logger.info(f"Total SKUs processed: {len(processed_skus)}")
-            logger.info(f"SKUs with matching files: {len(found_matches)}")
-            logger.info("Matched SKUs:")
-            for sku, file in found_matches.items():
-                logger.info(f"- SKU: {sku} -> File: {file}")
-            
-            logger.info(f"\nSKUs with no matching files: {len(not_found_skus)}")
-            logger.info("Missing SKUs:")
-            for sku in not_found_skus:
-                logger.info(f"- {sku}")
-            
-        except PrintImageSettings.DoesNotExist:
-            logger.warning("Print settings not found for user")
-            pass
+        if response.status_code == 200:
+            token_data = response.json()
+            settings.dropbox_access_token = token_data.get('access_token')
+            settings.dropbox_token_expiry = datetime.now() + timedelta(seconds=token_data.get('expires_in', 14400))
+            settings.save()
+            logger.info("Dropbox token refreshed successfully")
+            return True
+        else:
+            logger.error(f"Failed to refresh token: {response.text}")
+            return False
             
     except Exception as e:
+        logger.error(f"Error refreshing Dropbox token: {str(e)}")
+        return False
+
+def find_dropbox_image(dbx, sku):
+    """
+    Dropbox'ta SKU'ya göre resim dosyası arama
+    """
+    try:
+        # SKU'yu küçük harfe çevir
+        sku_lower = sku.lower()
+        
+        try:
+            # Dropbox'ta arama yap
+            search_results = dbx.files_search('', sku_lower)
+            
+            # Sonuçları kontrol et
+            for match in search_results.matches:
+                if isinstance(match.metadata, dropbox.files.FileMetadata):
+                    filename = match.metadata.name.lower()
+                    # Dosya adında SKU varsa ve .png uzantılıysa
+                    if sku_lower in filename and filename.endswith('.png'):
+                        return match.metadata.path_display
+            
+            return None
+            
+        except dropbox.exceptions.AuthError:
+            # Token süresi dolmuşsa yenilemeyi dene
+            settings = PrintImageSettings.objects.first()
+            if refresh_dropbox_token(settings):
+                # Yeni token ile yeni bir Dropbox client oluştur
+                dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                # Aramayı tekrar dene
+                search_results = dbx.files_search('', sku_lower)
+                
+                # Sonuçları kontrol et
+                for match in search_results.matches:
+                    if isinstance(match.metadata, dropbox.files.FileMetadata):
+                        filename = match.metadata.name.lower()
+                        # Dosya adında SKU varsa ve .png uzantılıysa
+                        if sku_lower in filename and filename.endswith('.png'):
+                            return match.metadata.path_display
+                
+                return None
+            else:
+                logger.error("Failed to refresh token. Please reconnect to Dropbox.")
+                return None
+        
+    except Exception as e:
+        logger.error(f"Dropbox search error for SKU {sku}: {str(e)}")
+        return None
+
+def download_dropbox_image(dbx, dropbox_path, local_path):
+    """Dropbox'tan resmi indir"""
+    try:
+        # Hedef klasörü oluştur
+        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        
+        try:
+            # Dosyayı indir
+            with open(local_path, 'wb') as f:
+                metadata, response = dbx.files_download(dropbox_path)
+                f.write(response.content)
+            
+            # Dosya izinlerini ayarla
+            os.chmod(local_path, 0o644)
+            
+            logger.info(f"Successfully downloaded image from Dropbox: {dropbox_path}")
+            return True
+            
+        except dropbox.exceptions.AuthError:
+            # Token süresi dolmuşsa yenilemeyi dene
+            settings = PrintImageSettings.objects.first()
+            if not settings or not settings.dropbox_refresh_token:
+                logger.error("No refresh token available. Please reconnect to Dropbox.")
+                return False
+                
+            if refresh_dropbox_token(settings):
+                # Yeni token ile yeni bir Dropbox client oluştur
+                dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                # İndirmeyi tekrar dene
+                with open(local_path, 'wb') as f:
+                    metadata, response = dbx.files_download(dropbox_path)
+                    f.write(response.content)
+                
+                # Dosya izinlerini ayarla
+                os.chmod(local_path, 0o644)
+                
+                logger.info(f"Successfully downloaded image from Dropbox after token refresh: {dropbox_path}")
+                return True
+            else:
+                logger.error("Failed to refresh token. Please reconnect to Dropbox.")
+                return False
+        
+    except Exception as e:
+        logger.error(f"Dropbox download error for {dropbox_path}: {str(e)}")
+        return False
+
+@login_required
+def order_detail(request, order_id):
+    """Order detail view"""
+    try:
+        batch = get_object_or_404(BatchOrder, order_id=order_id)
+        
+        # Dropbox bağlantısını kontrol et
+        settings = PrintImageSettings.objects.filter(user=request.user).first()
+        if settings and settings.use_dropbox:
+            if not settings.dropbox_access_token:
+                messages.warning(request, "Dropbox connection not found. Please check your Dropbox connection in Settings.")
+            else:
+                try:
+                    # Dropbox client oluştur
+                    dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                    
+                    # Her bir sipariş öğesi için işlem yap
+                    for order in batch.orders.all():
+                        for item in order.items.all():
+                            if not item.print_image:  # Eğer print_image henüz ayarlanmamışsa
+                                # Dropbox'ta resmi ara
+                                dropbox_path = find_dropbox_image(dbx, item.sku)
+                                if dropbox_path:
+                                    # Hedef dosya yolunu oluştur
+                                    filename = os.path.basename(dropbox_path)
+                                    target_path = os.path.join(
+                                        django_settings.MEDIA_ROOT,
+                                        'orders',
+                                        'images',
+                                        str(batch.order_id),
+                                        filename
+                                    )
+                                    
+                                    # Resmi indir
+                                    if download_dropbox_image(dbx, dropbox_path, target_path):
+                                        # Veritabanını güncelle
+                                        relative_path = os.path.join(
+                                            'orders',
+                                            'images',
+                                            str(batch.order_id),
+                                            filename
+                                        )
+                                        item.print_image = relative_path
+                                        item.save()
+                                        
+                                        logger.info(f"Print image downloaded for SKU {item.sku}: {filename}")
+                    
+                except dropbox.exceptions.AuthError:
+                    logger.error("Dropbox authentication error")
+                    messages.warning(request, "There was an error with Dropbox connection. Please refresh your Dropbox connection in Settings (Disconnect and connect again).")
+                except Exception as e:
+                    logger.error(f"Dropbox error: {str(e)}")
+                    messages.warning(request, f"There was an error downloading images from Dropbox: {str(e)}")
+        
+        return render(request, 'dashboard/orders/detail.html', {
+            'batch': batch,
+            'active_tab': 'orders'
+        })
+        
+    except Exception as e:
         logger.error(f"Error in order detail: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-    
-    context = {
-        'batch': batch,
-        'active_tab': 'orders'
-    }
-    return render(request, 'dashboard/orders/detail.html', context)
+        messages.error(request, "Error loading order details.")
+        return redirect('dashboard:orders')
 
 @login_required
 def print_image_settings(request):
     if request.method == 'POST':
         try:
-            folder_path = request.POST.get('print_folder_path')
+            use_dropbox = request.POST.get('use_dropbox') == 'on'
             
             # Get or create print settings
             settings, created = PrintImageSettings.objects.get_or_create(
                 user=request.user,
-                defaults={'print_folder_path': folder_path}
+                defaults={'use_dropbox': use_dropbox}
             )
             
             if not created:
-                settings.print_folder_path = folder_path
+                settings.use_dropbox = use_dropbox
                 settings.save()
-            
-            # Production ortamında Docker volume'da klasör oluştur
-            if not django_settings.DEBUG:
-                docker_path = os.path.join('/etc/easypanel/projects/inkteo/inkteo/volumes/print_images')
-                os.makedirs(docker_path, mode=0o755, exist_ok=True)
-                logger.info(f"Created Docker volume directory: {docker_path}")
             
             return JsonResponse({
                 'status': 'success',
@@ -705,36 +726,95 @@ def print_image_settings(request):
         settings = PrintImageSettings.objects.get(user=request.user)
         return JsonResponse({
             'status': 'success',
-            'print_folder_path': settings.print_folder_path
+            'use_dropbox': settings.use_dropbox
         })
     except PrintImageSettings.DoesNotExist:
         return JsonResponse({
             'status': 'success',
-            'print_folder_path': ''
+            'use_dropbox': False
         })
 
-@login_required
-def select_print_folder(request):
-    """Print klasörü seçimi"""
-    if request.method == 'POST':
-        folder_path = request.POST.get('folder_path')
-        if folder_path:
-            settings = PrintImageSettings.objects.first()
-            if not settings:
-                settings = PrintImageSettings.objects.create()
-            settings.print_folder_path = folder_path
-            settings.save()
-            return JsonResponse({'status': 'success'})
-    return JsonResponse({'status': 'error'})
-
 def find_print_image(sku):
-    """SKU'ya göre print image dosyasını bul"""
+    """Find print image file by SKU"""
     settings = PrintImageSettings.objects.first()
-    if not settings or not settings.print_folder_path:
+    if not settings or not settings.use_dropbox:
         return None
         
-    for root, dirs, files in os.walk(settings.print_folder_path):
-        for file in files:
-            if sku in file:
-                return os.path.join(root, file)
-    return None
+    try:
+        # Dropbox client oluştur
+        dbx = dropbox.Dropbox(settings.dropbox_access_token)
+        return find_dropbox_image(dbx, sku)
+    except Exception as e:
+        logger.error(f"Error finding print image for SKU {sku}: {str(e)}")
+        return None
+
+def dropbox_auth(request):
+    """Start Dropbox OAuth2 authorization"""
+    # Yetkilendirme URL'sini oluştur
+    params = {
+        'client_id': django_settings.DROPBOX_APP_KEY,
+        'response_type': 'code',
+        'redirect_uri': django_settings.DROPBOX_OAUTH_CALLBACK_URL,
+        'token_access_type': 'offline'
+    }
+    
+    authorization_url = f"https://www.dropbox.com/oauth2/authorize?{urlencode(params)}"
+    
+    return redirect(authorization_url)
+
+def dropbox_callback(request):
+    """Process Dropbox OAuth2 callback"""
+    try:
+        # Token alma isteği için parametreler
+        data = {
+            'code': request.GET.get('code'),
+            'grant_type': 'authorization_code',
+            'client_id': django_settings.DROPBOX_APP_KEY,
+            'client_secret': django_settings.DROPBOX_APP_SECRET,
+            'redirect_uri': django_settings.DROPBOX_OAUTH_CALLBACK_URL
+        }
+        
+        # Token alma isteği
+        response = requests.post('https://api.dropboxapi.com/oauth2/token', data=data)
+        
+        if response.status_code == 200:
+            token_data = response.json()
+            
+            # Save token information
+            settings, _ = PrintImageSettings.objects.get_or_create(user=request.user)
+            settings.dropbox_access_token = token_data.get('access_token')
+            settings.dropbox_refresh_token = token_data.get('refresh_token')
+            settings.dropbox_token_expiry = datetime.now() + timedelta(seconds=token_data.get('expires_in', 14400))
+            settings.use_dropbox = True
+            settings.save()
+            
+            logger.info("Successfully connected to Dropbox")
+            messages.success(request, 'Successfully connected to Dropbox.')
+        else:
+            logger.error(f"Failed to get token: {response.text}")
+            messages.error(request, 'Failed to connect to Dropbox.')
+        
+    except Exception as e:
+        logger.error(f"Dropbox OAuth error: {str(e)}")
+        messages.error(request, 'An error occurred while connecting to Dropbox.')
+    
+    return redirect('dashboard:settings')
+
+def dropbox_disconnect(request):
+    """Disconnect from Dropbox"""
+    try:
+        settings = PrintImageSettings.objects.get(user=request.user)
+        settings.dropbox_access_token = None
+        settings.dropbox_refresh_token = None
+        settings.dropbox_token_expiry = None
+        settings.use_dropbox = False
+        settings.save()
+        
+        messages.success(request, 'Successfully disconnected from Dropbox.')
+        
+    except PrintImageSettings.DoesNotExist:
+        messages.error(request, 'Print settings not found.')
+    except Exception as e:
+        messages.error(request, f'Error disconnecting from Dropbox: {str(e)}')
+    
+    return redirect('dashboard:settings')

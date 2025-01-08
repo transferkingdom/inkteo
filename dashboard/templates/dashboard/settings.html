@@ -1,0 +1,78 @@
+{% extends 'dashboard/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Ayarlar</h2>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Print Klasörü Ayarları</h5>
+        </div>
+        <div class="card-body">
+            <form id="printSettingsForm">
+                <div class="mb-3">
+                    <label for="print_folder_path" class="form-label">Print Klasörü Yolu</label>
+                    <input type="text" class="form-control" id="print_folder_path" name="print_folder_path" 
+                           value="{{ print_settings.print_folder_path|default:'' }}">
+                </div>
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Dropbox Bağlantısı</h5>
+        </div>
+        <div class="card-body">
+            {% if print_settings.use_dropbox %}
+                <p class="text-success">
+                    <i class="fas fa-check-circle"></i> 
+                    Dropbox bağlantısı aktif
+                </p>
+                {% if print_settings.dropbox_folder_path %}
+                    <p>Dropbox Klasörü: {{ print_settings.dropbox_folder_path }}</p>
+                {% endif %}
+                <a href="{% url 'dashboard:dropbox_disconnect' %}" class="btn btn-danger">
+                    <i class="fas fa-unlink"></i> Dropbox Bağlantısını Kes
+                </a>
+            {% else %}
+                <p>Print resimlerinizi Dropbox üzerinden yönetmek için Dropbox hesabınızı bağlayın.</p>
+                <a href="{% url 'dashboard:dropbox_auth' %}" class="btn btn-primary">
+                    <i class="fab fa-dropbox"></i> Dropbox'a Bağlan
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#printSettingsForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        $.ajax({
+            url: '{% url "dashboard:print_image_settings" %}',
+            type: 'POST',
+            data: {
+                print_folder_path: $('#print_folder_path').val(),
+                csrfmiddlewaretoken: '{{ csrf_token }}'
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    toastr.success('Ayarlar başarıyla kaydedildi');
+                } else {
+                    toastr.error(response.message || 'Bir hata oluştu');
+                }
+            },
+            error: function() {
+                toastr.error('Bir hata oluştu');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %} 

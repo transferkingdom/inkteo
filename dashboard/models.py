@@ -94,14 +94,20 @@ class OrderItem(models.Model):
         ordering = ['id']  # PDF'deki sıraya göre sıralama
 
 class PrintImageSettings(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    print_folder_path = models.CharField(max_length=255)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    
+    # Dropbox API settings
+    dropbox_access_token = models.CharField(max_length=255, blank=True, null=True)
+    dropbox_refresh_token = models.CharField(max_length=255, blank=True, null=True)
+    dropbox_token_expiry = models.DateTimeField(null=True, blank=True)
+    use_dropbox = models.BooleanField(default=False)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        verbose_name = 'Print Image Settings'
-        verbose_name_plural = 'Print Image Settings'
-
     def __str__(self):
         return f"Print Settings for {self.user.email}"
+
+    class Meta:
+        verbose_name = "Print Image Settings"
+        verbose_name_plural = "Print Image Settings"
