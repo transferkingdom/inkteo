@@ -28,6 +28,8 @@ import dropbox
 import requests
 from urllib.parse import urlencode
 from datetime import datetime, timedelta
+import re
+from PIL import Image
 
 # Configure logging
 logger = logging.getLogger('dashboard')
@@ -563,60 +565,133 @@ def find_dropbox_image(dbx, sku):
 def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
     """Dropbox'tan resmi indir ve işle"""
     try:
-        # SKU'yu dosya adından al
-        sku = os.path.splitext(os.path.basename(dropbox_path))[0]
+        # Orijinal SKU'yu al ve küçük harfe çevir
+        original_sku = os.path.splitext(os.path.basename(local_path))[0].lower()
+        print(f"Processing SKU: {original_sku}")
         
-        # Önce resimlerin varlığını kontrol et
-        sku_exists, batch_exists, sku_path, batch_path = check_sku_image_exists(sku, batch_id)
+        # 1. ÖNCE SKU folder'da tam eşleşme ara (orijinal SKU ile)
+        sku_exists, batch_exists, sku_path, batch_path = check_sku_image_exists(original_sku, batch_id)
+        print(f"Image check results - SKU exists: {sku_exists}, Batch exists: {batch_exists}")
         
-        # Eğer her iki resim de varsa, indirmeye gerek yok
-        if sku_exists and (not batch_id or batch_exists):
-            logger.info(f"Images already exist for SKU {sku}")
-            return True
-            
-        try:
-            if not sku_exists:
-                # SKU folder için hedef klasörü oluştur
-                sku_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'skufolder')
-                os.makedirs(sku_folder, exist_ok=True)
-                
-                # Orijinal resmi SKU folder'a indir
-                sku_path = os.path.join(sku_folder, f"{sku}.png")
-                with open(sku_path, 'wb') as f:
-                    metadata, response = dbx.files_download(dropbox_path)
-                    f.write(response.content)
-                
-                # Dosya izinlerini ayarla
-                os.chmod(sku_path, 0o644)
-                
-            # Eğer batch_id verilmişse ve batch resmi yoksa, işlenmiş resmi oluştur
-            if batch_id and not batch_exists:
-                # Batch klasörü için hedef yolu oluştur
-                batch_path = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id), f"{sku}.jpg")
-                
-                # Resmi işle ve kaydet
-                if process_image_for_print(sku_path, batch_path):
-                    logger.info(f"Successfully processed image for batch {batch_id}, SKU {sku}")
-                else:
-                    logger.error(f"Failed to process image for batch {batch_id}, SKU {sku}")
-                    return False
-            
-            return True
-            
-        except dropbox.exceptions.AuthError:
-            # Token süresi dolmuşsa yenilemeyi dene
-            settings = PrintImageSettings.objects.first()
-            if refresh_dropbox_token(settings):
-                # Yeni token ile yeni bir Dropbox client oluştur
-                dbx = dropbox.Dropbox(settings.dropbox_access_token)
-                # İndirmeyi tekrar dene
-                return download_dropbox_image(dbx, dropbox_path, local_path, batch_id)
-            else:
-                logger.error("Failed to refresh token. Please reconnect to Dropbox.")
+        # 2. SKU folder'da yoksa, Dropbox'tan indir
+        if not sku_exists:
+            print(f"SKU image does not exist in SKU folder, searching in Dropbox")
+            # Dropbox'ta tam eşleşme ara
+            dropbox_path = find_dropbox_image(dbx, original_sku)
+            if not dropbox_path:
+                print(f"No exact matching image found in Dropbox for SKU: {original_sku}")
                 return False
                 
+            print(f"Found exact matching image in Dropbox: {dropbox_path}")
+            
+            try:
+                # SKU folder için hedef klasörü oluştur ve izinleri ayarla
+                sku_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'skufolder')
+                if not os.path.exists(sku_folder):
+                    os.makedirs(sku_folder, exist_ok=True)
+                    try:
+                        os.chmod(sku_folder, 0o775)
+                    except Exception as e:
+                        print(f"Warning: Could not set skufolder permissions: {str(e)}")
+                print(f"Created/checked SKU folder: {sku_folder}")
+                
+                # Orijinal SKU adıyla kaydet (küçük harfli)
+                sku_path = os.path.join(sku_folder, f"{original_sku}.png")
+                print(f"Downloading to: {sku_path}")
+                
+                try:
+                    # Dropbox'tan indir
+                    metadata, response = dbx.files_download(dropbox_path)
+                    
+                    # Önce geçici dosyaya kaydet
+                    temp_path = sku_path + '.temp'
+                    with open(temp_path, 'wb') as f:
+                        f.write(response.content)
+                    
+                    try:
+                        # Geçici dosya izinlerini ayarla
+                        os.chmod(temp_path, 0o664)
+                    except Exception as e:
+                        print(f"Warning: Could not set temp file permissions: {str(e)}")
+                    
+                    # PNG'ye dönüştür ve SKU klasörüne kaydet
+                    with Image.open(temp_path) as img:
+                        if img.mode != 'RGBA':
+                            img = img.convert('RGBA')
+                        img.save(sku_path, 'PNG', optimize=True)
+                    
+                    # Geçici dosyayı sil
+                    try:
+                        os.remove(temp_path)
+                    except Exception as e:
+                        print(f"Warning: Could not delete temp file: {str(e)}")
+                    print(f"Downloaded and converted image to PNG at {sku_path}")
+                    
+                    try:
+                        # Dosya izinlerini web sunucusu için uygun şekilde ayarla
+                        os.chmod(sku_path, 0o664)
+                        print(f"Set permissions for {sku_path}")
+                    except Exception as e:
+                        print(f"Warning: Could not set file permissions: {str(e)}")
+                        
+                    #İndirilen dosyanın varlığını kontrol et
+                    if os.path.isfile(sku_path):
+                        print(f"Successfully downloaded and saved image to {sku_path}")
+                        sku_exists = True
+                    else:
+                        print(f"Failed to save image to {sku_path}")
+                        return False
+                    
+                except dropbox.exceptions.ApiError as e:
+                    print(f"Dropbox API error: {str(e)}")
+                    if isinstance(e, dropbox.exceptions.AuthError):
+                        print("Dropbox authentication error, attempting to refresh token")
+                        settings = PrintImageSettings.objects.first()
+                        if refresh_dropbox_token(settings):
+                            dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                            return download_dropbox_image(dbx, dropbox_path, local_path, batch_id)
+                        else:
+                            print("Failed to refresh token")
+                    return False
+                except Exception as e:
+                    print(f"Error downloading/saving image: {str(e)}")
+                    print(f"Error details: {traceback.format_exc()}")
+                    return False
+                    
+            except Exception as e:
+                print(f"Error in SKU folder operations: {str(e)}")
+                print(f"Error details: {traceback.format_exc()}")
+                return False
+        else:
+            print(f"SKU image already exists at {sku_path}")
+        
+        # 3. Batch klasörü için resmi işle (eğer gerekiyorsa)
+        if batch_id and not batch_exists and sku_exists:
+            print(f"Processing image for batch {batch_id}")
+            # Batch klasörü için hedef yolu oluştur (küçük harfli SKU adını kullan)
+            batch_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id))
+            if not os.path.exists(batch_folder):
+                os.makedirs(batch_folder, exist_ok=True)
+                try:
+                    os.chmod(batch_folder, 0o775)
+                except Exception as e:
+                    print(f"Warning: Could not set batch folder permissions: {str(e)}")
+            
+            batch_path = os.path.join(batch_folder, f"{original_sku}.png")
+            
+            # SKU klasöründeki resmi işle ve batch klasörüne kaydet
+            if process_image_for_print(sku_path, batch_path):
+                print(f"Successfully processed image for batch {batch_id}, SKU {original_sku}")
+                return True
+            else:
+                print(f"Failed to process image for batch {batch_id}, SKU {original_sku}")
+                return False
+        
+        return True
+            
     except Exception as e:
-        logger.error(f"Dropbox download error for {dropbox_path}: {str(e)}")
+        print(f"Dropbox download error: {str(e)}")
+        print(f"Error details: {traceback.format_exc()}")
         return False
 
 @login_required
@@ -835,3 +910,69 @@ def select_print_folder(request):
             settings.save()
             return JsonResponse({'status': 'success'})
     return JsonResponse({'status': 'error'})
+
+def process_order_text_to_data(order_text):
+    """Sipariş metnini işleyip veri yapısına dönüştür"""
+    try:
+        # Extract basic order information
+        order_match = re.search(r'Order #(\d+)', order_text)
+        customer_match = re.search(r'Ship to\n(.*?)\n', order_text)
+        date_match = re.search(r'Order date\n(.*?)\n', order_text)
+        tracking_match = re.search(r'Tracking\n(\d+)\nvia USPS', order_text)
+        
+        if not all([order_match, customer_match, date_match]):
+            print("Missing order information, skipping")
+            return None
+        
+        order_number = order_match.group(1)
+        print(f"Processing order: {order_number}")
+
+        try:
+            order_date = datetime.strptime(date_match.group(1).strip(), '%b %d, %Y').date()
+        except ValueError as e:
+            print(f"Date conversion error: {str(e)}")
+            return None
+
+        # Adres bilgisini al
+        shipping_address = extract_address(order_text)
+        print(f"Extracted shipping address for order {order_number}: {shipping_address}")
+
+        # Create order data
+        order_data = {
+            'order_number': order_number,
+            'customer_name': customer_match.group(1).strip(),
+            'shipping_address': shipping_address,
+            'order_date': order_date,
+            'tracking_number': tracking_match.group(1) if tracking_match else '',
+        }
+
+        # Extract products
+        try:
+            items = extract_items(order_text, order_number)
+            if not items:
+                print(f"No products found for order {order_number}")
+                return None
+                
+            # SKU'ları küçük harfe çevir
+            for item in items:
+                if 'sku' in item:
+                    item['sku'] = item['sku'].lower()
+                    
+            order_data['items'] = items
+        except Exception as e:
+            print(f"Product extraction error: {str(e)}")
+            return None
+        
+        # Add gift message (if exists)
+        try:
+            gift_message_match = re.search(r'Gift message\n(.*?)\n', order_text)
+            if gift_message_match:
+                order_data['gift_message'] = gift_message_match.group(1).strip()
+        except Exception as e:
+            print(f"Gift message extraction error: {str(e)}")
+        
+        return order_data
+    
+    except Exception as e:
+        print(f"Order text processing error: {str(e)}")
+        return None
