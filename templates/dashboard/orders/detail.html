@@ -40,7 +40,7 @@
         <div class="flex justify-between items-start mb-4">
             <div>
                 <h2 class="text-xl font-bold">Order #{{ order.etsy_order_number }}</h2>
-                <p class="text-gray-600">{{ order.customer_name }}</p>
+                <p class="text-gray-600">{{ order.customer_name }} - <strong>Address:</strong> {{ order.shipping_address }}</p>
             </div>
             <div class="text-right">
                 <p class="text-gray-600">{{ order.order_date|date:"Y-m-d" }}</p>
