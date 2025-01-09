@@ -461,6 +461,21 @@ def extract_order_data(pdf_file):
         if 'reader' in locals() and reader:
             reader = None
 
+def extract_address(order_text):
+    """Kargo adresini çıkar"""
+    try:
+        # Ship to ile başlayan ve başka bir bölüme kadar olan kısmı al
+        address_match = re.search(r'Ship to\n(.*?)(?=\n\d+ item|\nScheduled to ship by|\nShop|\nOrder date)', 
+                                order_text, re.DOTALL)
+        if address_match:
+            # İlk satırı (müşteri adı) çıkar ve kalan adresi döndür
+            address_lines = address_match.group(1).strip().split('\n')[1:]
+            return '\n'.join(line.strip() for line in address_lines if line.strip())
+        return ''
+    except Exception as e:
+        print(f"Address extraction error: {str(e)}")
+        return ''
+
 def process_order_text_to_data(order_text):
     """Sipariş metnini işleyip veri yapısına dönüştür"""
     try:
@@ -483,11 +498,15 @@ def process_order_text_to_data(order_text):
             print(f"Date conversion error: {str(e)}")
             return None
 
+        # Adres bilgisini al
+        shipping_address = extract_address(order_text)
+        print(f"Extracted shipping address for order {order_number}: {shipping_address}")
+
         # Create order data
         order_data = {
             'order_number': order_number,
             'customer_name': customer_match.group(1).strip(),
-            'shipping_address': extract_address(order_text),
+            'shipping_address': shipping_address,
             'order_date': order_date,
             'tracking_number': tracking_match.group(1) if tracking_match else '',
         }
@@ -537,21 +556,6 @@ def generate_order_id():
         new_id = 1000
     
     return f"{new_id:04d}-{timestamp}"
-
-def extract_address(order_text):
-    """Kargo adresini çıkar"""
-    try:
-        # Ship to ile başlayan ve başka bir bölüme kadar olan kısmı al
-        address_match = re.search(r'Ship to\n(.*?)(?=\n\d+ item|\nScheduled to ship by|\nShop)', 
-                                order_text, re.DOTALL)
-        if address_match:
-            # İlk satırı (müşteri adı) çıkar ve kalan adresi döndür
-            address_lines = address_match.group(1).strip().split('\n')[1:]
-            return '\n'.join(address_lines)
-        return ''
-    except Exception as e:
-        print(f"Address extraction error: {str(e)}")
-        return '' 
 
 def process_image_for_print(input_path, output_path, width=500):
     """
@@ -681,33 +685,73 @@ def find_dropbox_image(dbx, sku):
         try:
             # Arama parametrelerini hazırla
             search_args = {
-                'path': '',  # Tüm Dropbox'ta ara
-                'query': f'"{sku}.png" OR "{sku_lower}.png"',  # Hem orijinal hem de küçük harfli versiyonu ara
-                'mode': {
-                    '.tag': 'filename'  # Sadece dosya adında ara
+                'query': sku,  # SKU ile ara
+                'options': {
+                    'file_status': 'active',
+                    'filename_only': True,
+                    'max_results': 100  # Maksimum sonuç sayısı
                 }
             }
             
             print(f"Search query: {search_args['query']}")
             
             # Dropbox API v2 ile arama yap
-            result = dbx.files_search(**search_args)
+            result = dbx.files_search_v2(**search_args)
             
-            # Sonuçları kontrol et
-            if result.matches:
-                for match in result.matches:
-                    if isinstance(match.metadata, dropbox.files.FileMetadata):
-                        file_name = os.path.splitext(match.metadata.name)[0]  # Uzantıyı kaldır
-                        # Tam eşleşme kontrolü (büyük/küçük harf duyarsız)
-                        if file_name.lower() == sku_lower:
-                            print(f"Found exact matching file: {match.metadata.path_display}")
-                            return match.metadata.path_display
+            # Tüm sonuçları topla
+            all_matches = []
+            has_more = True
             
-            print(f"No exact matching PNG file found for SKU: {sku}")
+            while has_more:
+                if result.matches:
+                    print(f"Found {len(result.matches)} matches in current batch")
+                    
+                    # Mevcut sonuçları işle
+                    for match in result.matches:
+                        if isinstance(match.metadata, dropbox.files.FileMetadata):
+                            file_path = match.metadata.path_display
+                            file_name = os.path.splitext(os.path.basename(file_path))[0]
+                            file_name_lower = file_name.lower()
+                            
+                            # Sonucu listeye ekle
+                            all_matches.append({
+                                'path': file_path,
+                                'name': file_name,
+                                'name_lower': file_name_lower
+                            })
+                            print(f"Found match: {file_path} (name: {file_name})")
+                
+                # Daha fazla sonuç varsa devam et
+                if result.has_more:
+                    print("Getting more results...")
+                    result = dbx.files_search_continue_v2(result.cursor)
+                else:
+                    has_more = False
+            
+            print(f"\nTotal matches found: {len(all_matches)}")
+            
+            # Tüm sonuçları gördükten sonra tam eşleşme kontrolü yap
+            print(f"\nChecking {len(all_matches)} matches for exact case-insensitive match...")
+            for match in all_matches:
+                if match['name_lower'] == sku_lower:
+                    print(f"Found exact case-insensitive match: {match['path']}")
+                    return match['path']
+                else:
+                    print(f"Not an exact match: {match['name_lower']} != {sku_lower}")
+            
+            print(f"No exact case-insensitive match found for SKU: {sku}")
             return None
             
         except dropbox.exceptions.ApiError as e:
             print(f"Dropbox API error: {str(e)}")
+            if isinstance(e, dropbox.exceptions.AuthError):
+                print("Dropbox authentication error, attempting to refresh token")
+                settings = PrintImageSettings.objects.first()
+                if refresh_dropbox_token(settings):
+                    dbx = dropbox.Dropbox(settings.dropbox_access_token)
+                    return find_dropbox_image(dbx, sku)
+                else:
+                    print("Failed to refresh token")
             return None
                 
     except Exception as e:
