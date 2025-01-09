@@ -464,16 +464,32 @@ def extract_order_data(pdf_file):
 def extract_address(order_text):
     """Kargo adresini çıkar"""
     try:
+        print(f"Extracting address from text: {order_text[:200]}...")  # İlk 200 karakteri göster
+        
         # Ship to ile başlayan ve başka bir bölüme kadar olan kısmı al
         address_match = re.search(r'Ship to\n(.*?)(?=\n\d+ item|\nScheduled to ship by|\nShop|\nOrder date)', 
                                 order_text, re.DOTALL)
+        
         if address_match:
+            print("Found address match in text")
             # İlk satırı (müşteri adı) çıkar ve kalan adresi döndür
             address_lines = address_match.group(1).strip().split('\n')[1:]
-            return '\n'.join(line.strip() for line in address_lines if line.strip())
+            address = '\n'.join(line.strip() for line in address_lines if line.strip())
+            print(f"Extracted address: {address}")
+            return address
+        else:
+            print("No address match found in text")
+            # Regex pattern'i göster
+            print("Used regex pattern:", r'Ship to\n(.*?)(?=\n\d+ item|\nScheduled to ship by|\nShop|\nOrder date)')
+            # Ship to etrafındaki metni göster
+            ship_to_index = order_text.find('Ship to')
+            if ship_to_index != -1:
+                context = order_text[max(0, ship_to_index-50):min(len(order_text), ship_to_index+200)]
+                print(f"Context around 'Ship to': {context}")
         return ''
     except Exception as e:
         print(f"Address extraction error: {str(e)}")
+        print(f"Full error details: {traceback.format_exc()}")
         return ''
 
 def process_order_text_to_data(order_text):
