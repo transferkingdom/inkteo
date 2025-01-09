@@ -344,6 +344,7 @@ def upload_orders(request):
                     order_detail = OrderDetail.objects.create(
                         batch=batch,
                         customer_name=order.get('customer_name', ''),
+                        shipping_address=order.get('shipping_address', ''),
                         order_date=order.get('order_date'),
                         etsy_order_number=order.get('order_number', ''),
                         shipping_method=order.get('shipping_method', 'Standard'),
