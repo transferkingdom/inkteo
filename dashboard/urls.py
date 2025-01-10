@@ -8,6 +8,7 @@ urlpatterns = [
     path('orders/', views.orders, name='orders'),
     path('orders/upload/', views.upload_orders, name='upload_orders'),
     path('orders/<str:order_id>/', views.order_detail, name='order_detail'),
+    path('orders/<str:batch_id>/<str:etsy_order_number>/', views.single_order_detail, name='single_order_detail'),
     path('settings/', views.settings_view, name='settings'),
     path('settings/print-image/', views.print_image_settings, name='print_image_settings'),
     path('settings/select-print-folder/', views.select_print_folder, name='select_print_folder'),

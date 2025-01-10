@@ -993,3 +993,24 @@ def process_order_text_to_data(order_text):
     except Exception as e:
         print(f"Order text processing error: {str(e)}")
         return None
+
+@login_required
+def single_order_detail(request, batch_id, etsy_order_number):
+    """Tek bir siparişin detay sayfası"""
+    try:
+        # Batch'i ve siparişi bul
+        batch = get_object_or_404(BatchOrder, order_id=batch_id)
+        order = get_object_or_404(OrderDetail, batch=batch, etsy_order_number=etsy_order_number)
+        
+        context = {
+            'batch': batch,
+            'order': order,
+            'active_tab': 'orders',
+            'single_order': True  # Template'de tek sipariş görünümü için
+        }
+        return render(request, 'dashboard/orders/detail.html', context)
+        
+    except Exception as e:
+        print(f"Error in single order detail: {str(e)}")
+        messages.error(request, "Error loading order details.")
+        return redirect('dashboard:orders')
