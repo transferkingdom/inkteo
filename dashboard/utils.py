@@ -921,8 +921,9 @@ def create_qr_code(batch_id, order_number):
         else:
             base_url = "https://orders.inkteo.com"
             
-        url = f"{base_url}/dashboard/orders/{batch_id}/{order_number}"
-        print(f"QR kod URL'i: {url}")
+        # Chrome protokolü ile URL oluştur
+        chrome_url = f"googlechrome://navigate?url=https://orders.inkteo.com/dashboard/orders/{batch_id}/{order_number}"
+        print(f"QR kod URL'i: {chrome_url}")
         
         # QR kod oluştur
         qr = qrcode.QRCode(
@@ -931,7 +932,7 @@ def create_qr_code(batch_id, order_number):
             box_size=10,
             border=4,
         )
-        qr.add_data(url)
+        qr.add_data(chrome_url)
         qr.make(fit=True)
         
         # QR kod imajı oluştur
