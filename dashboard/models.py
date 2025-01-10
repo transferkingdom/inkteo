@@ -84,18 +84,17 @@ def print_image_upload_path(instance, filename):
 class OrderItem(models.Model):
     """Order items model"""
     order = models.ForeignKey(OrderDetail, on_delete=models.CASCADE, related_name='items')
-    name = models.CharField(max_length=255, default='')
-    sku = models.CharField(max_length=50)
+    sku = models.CharField(max_length=100)
+    name = models.CharField(max_length=500, blank=True)
     quantity = models.IntegerField(default=1)
-    size = models.CharField(max_length=100)
-    color = models.CharField(max_length=50)
-    personalization = models.CharField(max_length=255, blank=True, null=True)
-    image = models.ImageField(upload_to='orders/images/%Y/%m/%d/', null=True, blank=True)
-    image_url = models.URLField(null=True, blank=True)  # Original image URL
-    print_image = models.CharField(max_length=500, null=True, blank=True)  # Store relative path to print image
+    size = models.CharField(max_length=100, blank=True)
+    color = models.CharField(max_length=100, blank=True)
+    personalization = models.TextField(blank=True, null=True, default='')
+    print_image = models.CharField(max_length=500, blank=True, null=True, default='')
+    product_image = models.CharField(max_length=500, blank=True, null=True, default='')
 
     def __str__(self):
-        return f"{self.name} - {self.sku}"
+        return f"{self.sku} - {self.order.etsy_order_number}"
 
     class Meta:
         ordering = ['id']  # PDF'deki sıraya göre sıralama

@@ -60,7 +60,10 @@
             <table class="min-w-full table-auto">
                 <thead>
                     <tr class="bg-gray-100">
+                        <!-- Product Image kolonu gizlendi - daha sonra aktif edilecek -->
+                        {% comment %}
                         <th class="px-4 py-2 text-left">PRODUCT IMAGE</th>
+                        {% endcomment %}
                         <th class="px-4 py-2 text-left">PRINT IMAGE</th>
                         <th class="px-4 py-2 text-left">SKU</th>
                         <th class="px-4 py-2 text-left">SIZE</th>
@@ -73,13 +76,16 @@
                 <tbody>
                     {% for item in order.items.all %}
                     <tr class="border-t">
+                        <!-- Product Image hücresi gizlendi - daha sonra aktif edilecek -->
+                        {% comment %}
                         <td class="px-4 py-2">
                             {% if item.product_image %}
-                                <img src="{{ item.product_image.url }}" alt="Product" class="w-20 h-20 object-contain">
+                                <img src="{{ MEDIA_URL }}{{ item.product_image }}" alt="Product Image" style="max-width: 100px;">
                             {% else %}
-                                <span class="text-gray-400">No Image</span>
+                                <span>No Image</span>
                             {% endif %}
                         </td>
+                        {% endcomment %}
                         <td class="px-4 py-2">
                             {% if item.print_image %}
                                 <img src="/media/{{ item.print_image }}" alt="Print: {{ item.sku }}" class="w-20 h-20 object-contain">

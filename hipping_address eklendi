@@ -1,0 +1,12 @@
+[1mdiff --git a/dashboard/views.py b/dashboard/views.py[m
+[1mindex d832f49..0221381 100644[m
+[1m--- a/dashboard/views.py[m
+[1m+++ b/dashboard/views.py[m
+[36m@@ -344,6 +344,7 @@[m [mdef upload_orders(request):[m
+                     order_detail = OrderDetail.objects.create([m
+                         batch=batch,[m
+                         customer_name=order.get('customer_name', ''),[m
+[32m+[m[32m                        shipping_address=order.get('shipping_address', ''),[m
+                         order_date=order.get('order_date'),[m
+                         etsy_order_number=order.get('order_number', ''),[m
+                         shipping_method=order.get('shipping_method', 'Standard'),[m

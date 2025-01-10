@@ -17,7 +17,7 @@ class BatchOrderAdmin(admin.ModelAdmin):
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
     extra = 0
-    readonly_fields = ('name', 'sku', 'quantity', 'size', 'color', 'personalization', 'image')
+    readonly_fields = ['sku', 'name', 'quantity', 'size', 'color', 'personalization', 'print_image', 'product_image']
 
 @admin.register(OrderDetail)
 class OrderDetailAdmin(admin.ModelAdmin):
