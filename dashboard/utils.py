@@ -921,8 +921,10 @@ def create_qr_code(batch_id, order_number):
         else:
             base_url = "https://orders.inkteo.com"
             
+        # URL'nin başına ve sonuna özel karakterler ekle
         url = f"{base_url}/dashboard/orders/{batch_id}/{order_number}"
-        print(f"QR kod URL'i: {url}")
+        formatted_url = f"~{url}\n"  # ~ karakteri başa, \n (Enter) sona eklendi
+        print(f"QR kod URL'i: {formatted_url}")
         
         # QR kod oluştur
         qr = qrcode.QRCode(
@@ -931,7 +933,7 @@ def create_qr_code(batch_id, order_number):
             box_size=10,
             border=4,
         )
-        qr.add_data(url)
+        qr.add_data(formatted_url)
         qr.make(fit=True)
         
         # QR kod imajı oluştur
