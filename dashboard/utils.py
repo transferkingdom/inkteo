@@ -12,6 +12,8 @@ import dropbox
 import logging
 from .models import PrintImageSettings
 import traceback
+import qrcode
+import qrcode.constants
 
 # Logger configuration
 logger = logging.getLogger('dashboard')
@@ -893,3 +895,157 @@ def download_dropbox_image(dbx, dropbox_path, local_path, batch_id=None):
         print(f"Dropbox download error: {str(e)}")
         print(f"Error details: {traceback.format_exc()}")
         return False 
+
+def create_qr_code(batch_id, order_number):
+    """
+    QR kod oluşturma fonksiyonu
+    """
+    try:
+        print(f"\n=== QR Kod Oluşturuluyor ===")
+        print(f"Batch ID: {batch_id}")
+        print(f"Order Number: {order_number}")
+        
+        # QR kod dizini oluştur
+        save_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch_id), 'barcodes')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir, exist_ok=True)
+            try:
+                os.chmod(save_dir, 0o775)
+            except Exception as e:
+                print(f"Dizin izinleri ayarlanamadı: {str(e)}")
+        print(f"QR kod dizini oluşturuldu: {save_dir}")
+        
+        # QR kod URL'i
+        if django_settings.DEBUG:
+            base_url = "http://localhost:8000"
+        else:
+            base_url = "https://orders.inkteo.com"
+            
+        url = f"{base_url}/dashboard/orders/{batch_id}/{order_number}"
+        print(f"QR kod URL'i: {url}")
+        
+        # QR kod oluştur
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+        
+        # QR kod imajı oluştur
+        qr_image = qr.make_image(fill_color="black", back_color="white")
+        
+        # QR kodu kaydet
+        image_path = os.path.join(save_dir, f'{order_number}.png')
+        qr_image.save(image_path)
+        
+        try:
+            os.chmod(image_path, 0o664)
+            print(f"QR kod dosya izinleri ayarlandı: {image_path}")
+        except Exception as e:
+            print(f"QR kod dosya izinleri ayarlanamadı: {str(e)}")
+            
+        print(f"QR kod kaydedildi: {image_path}")
+        
+        # Dosyanın varlığını kontrol et
+        if not os.path.exists(image_path):
+            print(f"HATA: QR kod dosyası oluşturulamadı: {image_path}")
+            return None
+            
+        # Media URL'i döndür
+        media_url = f'/media/orders/images/{batch_id}/barcodes/{order_number}.png'
+        print(f"QR kod URL'i: {media_url}")
+        print("=== QR Kod Oluşturma Tamamlandı ===\n")
+        
+        return media_url
+        
+    except Exception as e:
+        print(f"QR kod oluşturma hatası: {str(e)}")
+        print(f"Hata detayı: {traceback.format_exc()}")
+        return None
+
+def process_pdf_file(pdf_file):
+    """
+    PDF dosyasını işler ve BatchOrder objesi oluşturur
+    """
+    try:
+        from .models import BatchOrder, OrderDetail, OrderItem
+        import traceback
+        import os
+        
+        print("\n=== PDF İşleme Başladı ===")
+        
+        # Yeni batch order oluştur
+        batch = BatchOrder.objects.create(
+            order_id=generate_order_id(),
+            status='processing'
+        )
+        print(f"Yeni batch oluşturuldu: {batch.order_id}")
+        
+        # QR kod dizinini oluştur
+        qr_dir = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id), 'barcodes')
+        if not os.path.exists(qr_dir):
+            os.makedirs(qr_dir, exist_ok=True)
+            try:
+                os.chmod(qr_dir, 0o775)
+                print(f"QR kod dizini oluşturuldu ve izinler ayarlandı: {qr_dir}")
+            except Exception as e:
+                print(f"QR kod dizini izinleri ayarlanamadı: {str(e)}")
+        
+        # PDF'den siparişleri çıkar
+        orders_data = extract_order_data(pdf_file)
+        if not orders_data:
+            raise Exception("PDF'den sipariş verisi çıkarılamadı.")
+        
+        print(f"Toplam {len(orders_data)} sipariş bulundu")
+        
+        # Her sipariş için Order objesi oluştur
+        for order_data in orders_data:
+            print(f"\n--- Sipariş İşleniyor: {order_data['order_number']} ---")
+            
+            order = OrderDetail.objects.create(
+                batch=batch,
+                etsy_order_number=order_data['order_number'],
+                customer_name=order_data['customer_name'],
+                shipping_address=order_data['shipping_address'],
+                order_date=order_data['order_date'],
+                tracking_number=order_data.get('tracking_number', '')
+            )
+            print(f"Sipariş detayları kaydedildi")
+            
+            # QR kod oluştur
+            qr_code_url = create_qr_code(batch.order_id, order.etsy_order_number)
+            if qr_code_url:
+                order.qr_code_url = qr_code_url
+                order.save()
+                print(f"QR kod oluşturuldu ve kaydedildi: {qr_code_url}")
+            else:
+                print(f"QR kod oluşturulamadı: {order.etsy_order_number}")
+            
+            # Sipariş öğelerini kaydet
+            for item in order_data.get('items', []):
+                OrderItem.objects.create(
+                    order=order,
+                    sku=item['sku'],
+                    quantity=item['quantity']
+                )
+            print(f"Sipariş öğeleri kaydedildi")
+        
+        # Batch bilgilerini güncelle
+        batch.total_orders = len(orders_data)
+        batch.total_items = sum(len(order.get('items', [])) for order in orders_data)
+        batch.status = 'completed'
+        batch.save()
+        print("=== PDF İşleme Tamamlandı ===\n")
+        
+        return batch
+        
+    except Exception as e:
+        print(f"PDF işleme hatası: {str(e)}")
+        print(f"Hata detayı: {traceback.format_exc()}")
+        if 'batch' in locals():
+            batch.status = 'error'
+            batch.save()
+        return None 

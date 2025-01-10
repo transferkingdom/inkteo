@@ -47,7 +47,7 @@
     <!-- Order Info Header -->
     <div class="bg-white rounded-lg shadow-md p-6 mb-8">
         <div class="border-b border-gray-200 pb-4">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-3 gap-4">
                 <div class="bg-blue-50 rounded-lg p-4">
                     <h2 class="text-sm font-medium text-blue-600 uppercase tracking-wider mb-1">Order Number</h2>
                     <p class="text-2xl font-bold text-blue-900">#{{ order.etsy_order_number }}</p>
@@ -55,6 +55,12 @@
                 <div class="bg-green-50 rounded-lg p-4">
                     <h2 class="text-sm font-medium text-green-600 uppercase tracking-wider mb-1">Total Items</h2>
                     <p class="text-2xl font-bold text-green-900">{{ order.items.count }}</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h2 class="text-sm font-medium text-gray-600 uppercase tracking-wider mb-1">QR Code</h2>
+                    {% if order.qr_code_url %}
+                    <img src="{{ order.qr_code_url }}" alt="Order QR Code" class="w-24 h-24 mx-auto">
+                    {% endif %}
                 </div>
             </div>
         </div>
