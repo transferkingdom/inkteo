@@ -67,6 +67,7 @@ class OrderDetail(models.Model):
     shipping_method = models.CharField(max_length=100)
     tracking_number = models.CharField(max_length=100)
     total_items = models.IntegerField(default=0)
+    qr_code_url = models.CharField(max_length=255, blank=True, null=True)  # QR kod URL'i için yeni alan
 
     def __str__(self):
         return f"Order {self.etsy_order_number}"
@@ -118,3 +119,31 @@ class PrintImageSettings(models.Model):
     class Meta:
         verbose_name = "Print Image Settings"
         verbose_name_plural = "Print Image Settings"
+
+class OrderBatch(models.Model):
+    order_id = models.CharField(max_length=50, unique=True)
+    upload_date = models.DateTimeField(auto_now_add=True)
+    total_orders = models.IntegerField(default=0)
+    total_items = models.IntegerField(default=0)
+    status = models.CharField(max_length=50, default='pending')
+
+    class Meta:
+        ordering = ['-upload_date']
+
+    def __str__(self):
+        return self.order_id
+
+class Order(models.Model):
+    batch = models.ForeignKey(OrderBatch, on_delete=models.CASCADE, related_name='orders')
+    etsy_order_number = models.CharField(max_length=50)
+    customer_name = models.CharField(max_length=200)
+    shipping_address = models.TextField()
+    order_date = models.DateField()
+    tracking_number = models.CharField(max_length=100, blank=True, null=True)
+    qr_code_url = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        ordering = ['-order_date']
+
+    def __str__(self):
+        return f"Order #{self.etsy_order_number}"

@@ -1,0 +1,3 @@
+[33m2d36d9d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m QR kodları single order detail sayfasında göster ve webserver URL'ini güncelle
+[33me3d267b[m Sipariş detay sayfası düzenlendi, batch ve single order görünümleri iyileştirildi
+[33md851db8[m Tek sipariş görünümü eklendi ve tablo yapısı ayrı template'e taşındı

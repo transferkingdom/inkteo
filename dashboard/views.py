@@ -22,7 +22,7 @@ from .models import BatchOrder, OrderDetail, OrderItem, PrintImageSettings
 from .utils import (
     generate_order_id, extract_order_data, process_image_for_print,
     check_sku_image_exists, find_dropbox_image, download_dropbox_image,
-    refresh_dropbox_token
+    refresh_dropbox_token, process_pdf_file, create_qr_code
 )
 import dropbox
 import requests
@@ -756,6 +756,17 @@ def order_detail(request, order_id):
                     print(f"Error details: {traceback.format_exc()}")
                     messages.warning(request, f"There was an error downloading images from Dropbox: {str(e)}")
         
+        # QR kodları kontrol et ve eksik olanları oluştur
+        for order in batch.orders.all():
+            if not order.qr_code_url:
+                qr_code_url = create_qr_code(batch.order_id, order.etsy_order_number)
+                if qr_code_url:
+                    order.qr_code_url = qr_code_url
+                    order.save()
+                    print(f"QR kod oluşturuldu ve kaydedildi: {qr_code_url}")
+                else:
+                    print(f"QR kod oluşturulamadı: {order.etsy_order_number}")
+        
         return render(request, 'dashboard/orders/detail.html', {
             'batch': batch,
             'active_tab': 'orders'
@@ -996,21 +1007,115 @@ def process_order_text_to_data(order_text):
 
 @login_required
 def single_order_detail(request, batch_id, etsy_order_number):
-    """Tek bir siparişin detay sayfası"""
+    """Single order detail view"""
     try:
-        # Batch'i ve siparişi bul
         batch = get_object_or_404(BatchOrder, order_id=batch_id)
         order = get_object_or_404(OrderDetail, batch=batch, etsy_order_number=etsy_order_number)
         
-        context = {
+        # QR kodu kontrol et ve eksikse oluştur
+        if not order.qr_code_url:
+            qr_code_url = create_qr_code(batch.order_id, order.etsy_order_number)
+            if qr_code_url:
+                order.qr_code_url = qr_code_url
+                order.save()
+                print(f"QR kod oluşturuldu ve kaydedildi: {qr_code_url}")
+            else:
+                print(f"QR kod oluşturulamadı: {order.etsy_order_number}")
+        
+        return render(request, 'dashboard/orders/detail.html', {
             'batch': batch,
             'order': order,
-            'active_tab': 'orders',
-            'single_order': True  # Template'de tek sipariş görünümü için
-        }
-        return render(request, 'dashboard/orders/detail.html', context)
+            'single_order': True,
+            'active_tab': 'orders'
+        })
         
     except Exception as e:
         print(f"Error in single order detail: {str(e)}")
+        print(f"Error details: {traceback.format_exc()}")
         messages.error(request, "Error loading order details.")
         return redirect('dashboard:orders')
+
+@login_required
+def upload_pdf(request):
+    """PDF yükleme view'i"""
+    if request.method == 'POST' and request.FILES.get('pdf_file'):
+        pdf_file = request.FILES['pdf_file']
+        
+        # PDF dosyasını işle
+        batch = process_pdf_file(pdf_file, request)
+        
+        if batch:
+            messages.success(request, 'PDF başarıyla işlendi.')
+            return JsonResponse({'status': 'success', 'batch_id': batch.order_id})
+        else:
+            messages.error(request, 'PDF işlenirken bir hata oluştu.')
+            return JsonResponse({'status': 'error'}, status=500)
+            
+    return redirect('dashboard:orders')
+
+def process_pdf_file(pdf_file, request):
+    """
+    PDF dosyasını işler ve BatchOrder objesi oluşturur
+    """
+    try:
+        from .models import BatchOrder, OrderDetail
+        
+        # Yeni batch order oluştur
+        batch = BatchOrder.objects.create(
+            order_id=generate_order_id(),
+            status='processing'
+        )
+        
+        # PDF'den siparişleri çıkar
+        orders_data = extract_order_data(pdf_file)
+        if not orders_data:
+            raise Exception("PDF'den sipariş verisi çıkarılamadı.")
+        
+        # Her sipariş için Order objesi oluştur
+        for order_data in orders_data:
+            order = OrderDetail.objects.create(
+                batch=batch,
+                etsy_order_number=order_data['order_number'],
+                customer_name=order_data['customer_name'],
+                shipping_address=order_data['shipping_address'],
+                order_date=order_data['order_date'],
+                tracking_number=order_data.get('tracking_number', '')
+            )
+            
+            # QR kod oluştur
+            qr_code_url = create_qr_code(batch.order_id, order.etsy_order_number)
+            if qr_code_url:
+                order.qr_code_url = qr_code_url
+                order.save()
+                print(f"QR kod oluşturuldu: {qr_code_url}")
+            else:
+                print(f"QR kod oluşturulamadı: {order.etsy_order_number}")
+        
+        # Batch bilgilerini güncelle
+        batch.total_orders = len(orders_data)
+        batch.total_items = sum(len(order.get('items', [])) for order in orders_data)
+        batch.status = 'completed'
+        batch.save()
+        
+        return batch
+        
+    except Exception as e:
+        print(f"Error processing PDF file: {str(e)}")
+        if 'batch' in locals():
+            batch.status = 'error'
+            batch.save()
+        return None
+
+def generate_qr_code_view(request, batch_id, order_number):
+    """QR kod oluşturma view'i"""
+    try:
+        # QR kodu oluştur
+        qr_code_url = create_qr_code(batch_id, order_number)
+        
+        if qr_code_url:
+            return JsonResponse({'success': True, 'url': qr_code_url})
+        else:
+            return JsonResponse({'success': False, 'error': 'QR kod oluşturulamadı'})
+            
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)})
