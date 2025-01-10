@@ -64,13 +64,13 @@
                         {% comment %}
                         <th class="px-4 py-2 text-left">PRODUCT IMAGE</th>
                         {% endcomment %}
-                        <th class="px-4 py-2 text-left">PRINT IMAGE</th>
-                        <th class="px-4 py-2 text-left">SKU</th>
-                        <th class="px-4 py-2 text-left">SIZE</th>
-                        <th class="px-4 py-2 text-left">COLOR</th>
-                        <th class="px-4 py-2 text-left">QUANTITY</th>
-                        <th class="px-4 py-2 text-left">PERSONALIZATION</th>
-                        <th class="px-4 py-2 text-left">STATUS</th>
+                        <th class="px-4 py-2 text-center w-40">PRINT IMAGE</th>
+                        <th class="px-4 py-2 text-center">SKU</th>
+                        <th class="px-4 py-2 text-center">SIZE</th>
+                        <th class="px-4 py-2 text-center">COLOR</th>
+                        <th class="px-4 py-2 text-center">QUANTITY</th>
+                        <th class="px-4 py-2 text-center">PERSONALIZATION</th>
+                        <th class="px-4 py-2 text-center">STATUS</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -86,25 +86,29 @@
                             {% endif %}
                         </td>
                         {% endcomment %}
-                        <td class="px-4 py-2">
+                        <td class="px-4 py-2 w-40">
                             {% if item.print_image %}
-                                <img src="/media/{{ item.print_image }}" alt="Print: {{ item.sku }}" class="w-20 h-20 object-contain">
+                                <div class="flex justify-center">
+                                    <div class="bg-gray-200 rounded p-1 border border-gray-300 w-fit">
+                                        <img src="/media/{{ item.print_image }}" alt="Print: {{ item.sku }}" class="w-24 h-24 object-contain">
+                                    </div>
+                                </div>
                             {% else %}
                                 <span class="text-gray-400">No Image</span>
                             {% endif %}
                         </td>
-                        <td class="px-4 py-2">{{ item.sku }}</td>
-                        <td class="px-4 py-2">{{ item.size }}</td>
-                        <td class="px-4 py-2">{{ item.color }}</td>
-                        <td class="px-4 py-2">{{ item.quantity }}</td>
-                        <td class="px-4 py-2">
+                        <td class="px-4 py-2 text-center">{{ item.sku }}</td>
+                        <td class="px-4 py-2 text-center">{{ item.size }}</td>
+                        <td class="px-4 py-2 text-center">{{ item.color }}</td>
+                        <td class="px-4 py-2 text-center">{{ item.quantity }}</td>
+                        <td class="px-4 py-2 text-center">
                             {% if item.personalization %}
                                 {{ item.personalization }}
                             {% else %}
                                 -
                             {% endif %}
                         </td>
-                        <td class="px-4 py-2">
+                        <td class="px-4 py-2 text-center">
                             {% if item.print_image %}
                                 <span class="text-green-600">OK</span>
                             {% else %}
