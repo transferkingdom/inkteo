@@ -724,61 +724,24 @@ def order_detail(request, order_id):
     try:
         batch = get_object_or_404(BatchOrder, order_id=order_id)
         
-        # Dropbox bağlantısını kontrol et
-        settings = PrintImageSettings.objects.filter(user=request.user).first()
-        if settings and settings.use_dropbox:
-            if not settings.dropbox_access_token:
-                messages.warning(request, "Dropbox connection not found. Please check your Dropbox connection in Settings.")
-            else:
-                try:
-                    # Dropbox client oluştur
-                    dbx = dropbox.Dropbox(settings.dropbox_access_token)
-                    
-                    # Her bir sipariş öğesi için işlem yap
-                    for order in batch.orders.all():
-                        for item in order.items.all():
-                            if not item.print_image:  # Eğer print_image henüz ayarlanmamışsa
-                                # Önce SKU ile aynı isimde dosya var mı kontrol et
-                                batch_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id))
-                                if os.path.exists(batch_folder):
-                                    # Klasördeki tüm dosyaları listele
-                                    files = os.listdir(batch_folder)
-                                    # SKU'yu büyük/küçük harf duyarsız ara
-                                    sku_found = False
-                                    for file in files:
-                                        if file.lower().startswith(item.sku.lower()) and file.lower().endswith('.png'):
-                                            # Dosya bulundu, relative path'i güncelle
-                                            relative_path = os.path.join('orders', 'images', str(batch.order_id), file)
-                                            item.print_image = relative_path
-                                            item.save()
-                                            sku_found = True
-                                            print(f"Found existing image for SKU {item.sku}: {file}")
-                                            break
-                                    
-                                    if not sku_found:
-                                        # Dropbox'ta resmi ara
-                                        dropbox_path = find_dropbox_image(dbx, item.sku)
-                                        if dropbox_path:
-                                            # Resmi indir ve işle
-                                            if download_dropbox_image(dbx, dropbox_path, None, batch.order_id):
-                                                # Veritabanını güncelle
-                                                relative_path = os.path.join(
-                                                    'orders',
-                                                    'images',
-                                                    str(batch.order_id),
-                                                    f"{item.sku}.png"
-                                                )
-                                                item.print_image = relative_path
-                                                item.save()
-                                                print(f"Print image downloaded and processed for SKU {item.sku}")
-                    
-                except dropbox.exceptions.AuthError:
-                    print("Dropbox authentication error")
-                    messages.warning(request, "There was an error with Dropbox connection. Please refresh your Dropbox connection in Settings (Disconnect and connect again).")
-                except Exception as e:
-                    print(f"Dropbox error: {str(e)}")
-                    print(f"Error details: {traceback.format_exc()}")
-                    messages.warning(request, f"There was an error downloading images from Dropbox: {str(e)}")
+        # Her bir sipariş öğesi için sadece mevcut resimleri kontrol et
+        for order in batch.orders.all():
+            for item in order.items.all():
+                if not item.print_image:  # Eğer print_image henüz ayarlanmamışsa
+                    # Batch klasöründe resim var mı kontrol et
+                    batch_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id))
+                    if os.path.exists(batch_folder):
+                        # Klasördeki tüm dosyaları listele
+                        files = os.listdir(batch_folder)
+                        # SKU'yu büyük/küçük harf duyarsız ara
+                        for file in files:
+                            if file.lower().startswith(item.sku.lower()) and file.lower().endswith('.png'):
+                                # Dosya bulundu, relative path'i güncelle
+                                relative_path = os.path.join('orders', 'images', str(batch.order_id), file)
+                                item.print_image = relative_path
+                                item.save()
+                                print(f"Found existing image for SKU {item.sku}: {file}")
+                                break
         
         # QR kodları kontrol et ve eksik olanları oluştur
         for order in batch.orders.all():
@@ -1036,6 +999,24 @@ def single_order_detail(request, batch_id, etsy_order_number):
     try:
         batch = get_object_or_404(BatchOrder, order_id=batch_id)
         order = get_object_or_404(OrderDetail, batch=batch, etsy_order_number=etsy_order_number)
+        
+        # Her bir sipariş öğesi için sadece mevcut resimleri kontrol et
+        for item in order.items.all():
+            if not item.print_image:  # Eğer print_image henüz ayarlanmamışsa
+                # Batch klasöründe resim var mı kontrol et
+                batch_folder = os.path.join(django_settings.MEDIA_ROOT, 'orders', 'images', str(batch.order_id))
+                if os.path.exists(batch_folder):
+                    # Klasördeki tüm dosyaları listele
+                    files = os.listdir(batch_folder)
+                    # SKU'yu büyük/küçük harf duyarsız ara
+                    for file in files:
+                        if file.lower().startswith(item.sku.lower()) and file.lower().endswith('.png'):
+                            # Dosya bulundu, relative path'i güncelle
+                            relative_path = os.path.join('orders', 'images', str(batch.order_id), file)
+                            item.print_image = relative_path
+                            item.save()
+                            print(f"Found existing image for SKU {item.sku}: {file}")
+                            break
         
         # QR kodu kontrol et ve eksikse oluştur
         if not order.qr_code_url:
