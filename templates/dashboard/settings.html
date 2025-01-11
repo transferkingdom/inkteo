@@ -1,347 +1,284 @@
-{% extends "base.html" %}
+{% extends "dashboard/home.html" %}
 {% load static %}
 
-{% block title %}Settings{% endblock %}
+{% block dashboard_content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h2 class="text-2xl font-bold text-gray-900">Account Settings</h2>
+        <p class="mt-1 text-gray-600">Manage your account settings and preferences.</p>
+    </div>
 
-{% block content %}
-<div class="min-h-screen flex bg-gray-50" x-data="{ sidebarOpen: false }">
-    <!-- Mobile header -->
-    <div class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white shadow-sm">
-        <div class="flex items-center justify-between px-4 py-2">
-            <div class="flex items-center">
-                <img src="{% static 'images/logo.png' %}" alt="Inkteo POD" class="h-10">
-            </div>
-            <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-md text-gray-500 hover:text-gray-600 focus:outline-none">
-                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                </svg>
-            </button>
+    <!-- Settings Tabs -->
+    <div x-data="{ activeTab: 'profile' }" class="max-w-2xl mx-auto">
+        <!-- Tab Navigation -->
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex space-x-8">
+                <button @click="activeTab = 'profile'"
+                        :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'profile',
+                                'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'profile'}"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Profile Information
+                </button>
+                <button @click="activeTab = 'company'"
+                        :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'company',
+                                'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'company'}"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Company Details
+                </button>
+                <button @click="activeTab = 'security'"
+                        :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'security',
+                                'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'security'}"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Security
+                </button>
+                <button @click="activeTab = 'print_image'"
+                        :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'print_image',
+                                'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'print_image'}"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    Print Image
+                </button>
+            </nav>
         </div>
-    </div>
 
-    <!-- Sidebar -->
-    <div :class="{'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen}"
-         class="fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:relative lg:inset-0">
-        {% include "dashboard/partials/sidebar.html" %}
-    </div>
-
-    <!-- Main Content -->
-    <div class="flex-1">
-        <!-- Top Bar -->
-        <div class="bg-white shadow-sm">
-            <div class="flex items-center justify-between h-16 px-8">
-                <h1 class="text-xl font-semibold text-gray-800">Settings</h1>
+        <!-- Profile Tab -->
+        <div x-show="activeTab === 'profile'" class="space-y-6 max-w-2xl mt-6" x-data="{ isEmailEditable: false }">
+            <form method="post" action="{% url 'dashboard:update_profile' %}" class="space-y-6" id="profileForm">
+                {% csrf_token %}
                 
-                <!-- User Menu -->
-                <div class="relative" x-data="{ open: false }">
-                    <button @click="open = !open" 
-                            class="flex items-center space-x-2 text-gray-700 hover:text-gray-900 focus:outline-none">
-                        <span class="text-sm">{{ request.user.email }}</span>
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
-
-                    <!-- Dropdown Menu -->
-                    <div x-show="open" 
-                         @click.away="open = false"
-                         x-transition:enter="transition ease-out duration-100"
-                         x-transition:enter-start="transform opacity-0 scale-95"
-                         x-transition:enter-end="transform opacity-100 scale-100"
-                         x-transition:leave="transition ease-in duration-75"
-                         x-transition:leave-start="transform opacity-100 scale-100"
-                         x-transition:leave-end="transform opacity-0 scale-95"
-                         class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 ring-1 ring-black ring-opacity-5 z-50">
-                        <a href="{% url 'dashboard:settings' %}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Settings</a>
-                        <form method="post" action="{% url 'account_logout' %}">
-                            {% csrf_token %}
-                            <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Logout</button>
-                        </form>
+                <!-- Messages -->
+                {% if messages %}
+                    {% for message in messages %}
+                        {% if 'signed' not in message.message and 'Successfully signed' not in message.message %}
+                            <div class="rounded-md bg-green-50 p-4 mb-4">
+                                <div class="flex">
+                                    <div class="flex-shrink-0">
+                                        <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-3">
+                                        <p class="text-sm font-medium text-green-800">{{ message }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                {% endif %}
+                
+                <!-- Name Fields -->
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                        <input type="text" name="first_name" value="{{ user.first_name }}"
+                               class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                      focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                      text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                        <input type="text" name="last_name" value="{{ user.last_name }}"
+                               class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                      focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                      text-base">
                     </div>
                 </div>
-            </div>
+                
+                <!-- Email Field -->
+                <div class="mt-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <button type="button" 
+                                @click="isEmailEditable = !isEmailEditable"
+                                class="text-sm text-[#0088CC] hover:text-[#006DA3] font-medium focus:outline-none">
+                            <span x-text="isEmailEditable ? 'Cancel' : 'Change Email Address'"></span>
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <input type="email" 
+                               name="email" 
+                               value="{{ user.email }}"
+                               :readonly="!isEmailEditable"
+                               :class="{'bg-gray-50': !isEmailEditable, 'cursor-not-allowed': !isEmailEditable}"
+                               class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                      focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                      text-base">
+                        <div x-show="!isEmailEditable" 
+                             class="absolute inset-0 bg-gray-50 bg-opacity-50 cursor-not-allowed">
+                        </div>
+                    </div>
+                    <p class="mt-2 text-sm text-gray-500" x-show="isEmailEditable">
+                        You'll need to verify your new email address. After saving, you'll be logged out and 
+                        need to verify the new email before logging in again.
+                    </p>
+                </div>
+
+                <div class="mt-6 flex items-center justify-between">
+                    <button type="submit"
+                            class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
+                                   text-base font-medium rounded-md text-white bg-[#0088CC] 
+                                   hover:bg-[#006DA3] focus:outline-none focus:ring-2 
+                                   focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
+                        Save Changes
+                    </button>
+                    <span x-show="isEmailEditable" class="text-sm text-gray-500">
+                        * Email change requires verification
+                    </span>
+                </div>
+            </form>
         </div>
 
-        <!-- Settings Content -->
-        <div class="p-8">
-            <div class="mb-8">
-                <h2 class="text-2xl font-bold text-gray-900">Account Settings</h2>
-                <p class="mt-1 text-gray-600">Manage your account settings and preferences.</p>
-            </div>
-
-            <!-- Settings Tabs -->
-            <div x-data="{ activeTab: 'profile' }" class="max-w-2xl mx-auto">
-                <!-- Tab Navigation -->
-                <div class="border-b border-gray-200">
-                    <nav class="-mb-px flex space-x-8">
-                        <button @click="activeTab = 'profile'"
-                                :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'profile',
-                                        'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'profile'}"
-                                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                            Profile Information
-                        </button>
-                        <button @click="activeTab = 'company'"
-                                :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'company',
-                                        'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'company'}"
-                                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                            Company Details
-                        </button>
-                        <button @click="activeTab = 'security'"
-                                :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'security',
-                                        'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'security'}"
-                                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                            Security
-                        </button>
-                        <button @click="activeTab = 'print_image'"
-                                :class="{'border-[#0088CC] text-[#0088CC]': activeTab === 'print_image',
-                                        'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': activeTab !== 'print_image'}"
-                                class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
-                            Print Image
-                        </button>
-                    </nav>
+        <!-- Company Tab -->
+        <div x-show="activeTab === 'company'" class="space-y-6 max-w-2xl mt-6">
+            <form method="post" action="{% url 'dashboard:update_company' %}">
+                {% csrf_token %}
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
+                        <input type="text" name="name" value="{{ company.name|default:'' }}"
+                               class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                      focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                      text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Tax ID</label>
+                        <input type="text" name="tax_id" value="{{ company.tax_id|default:'' }}"
+                               class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                      focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                      text-base">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Address</label>
+                        <textarea name="address" rows="4"
+                                  class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                         focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                         text-base">{{ company.address|default:'' }}</textarea>
+                    </div>
                 </div>
 
-                <!-- Profile Tab -->
-                <div x-show="activeTab === 'profile'" class="space-y-6 max-w-2xl mt-6" x-data="{ isEmailEditable: false }">
-                    <form method="post" action="{% url 'dashboard:update_profile' %}" class="space-y-6" id="profileForm">
-                        {% csrf_token %}
-                        
-                        <!-- Messages -->
-                        {% if messages %}
-                            {% for message in messages %}
-                                {% if 'signed' not in message.message and 'Successfully signed' not in message.message %}
-                                    <div class="rounded-md bg-green-50 p-4 mb-4">
-                                        <div class="flex">
-                                            <div class="flex-shrink-0">
-                                                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                                                </svg>
-                                            </div>
-                                            <div class="ml-3">
-                                                <p class="text-sm font-medium text-green-800">{{ message }}</p>
-                                            </div>
-                                        </div>
+                <div class="mt-6">
+                    <button type="submit"
+                            class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
+                                   text-base font-medium rounded-md text-white bg-[#0088CC] 
+                                   hover:bg-[#006DA3] focus:outline-none focus:ring-2 
+                                   focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
+                        Save Company Details
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Security Tab -->
+        <div x-show="activeTab === 'security'" class="space-y-6 max-w-2xl mt-6">
+            <form method="post" action="{% url 'dashboard:change_password' %}" id="passwordForm">
+                {% csrf_token %}
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
+                        <input type="password" name="current_password" id="current_password"
+                               class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                      focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                      text-base">
+                        <div id="current_password_error" class="mt-2 text-sm text-red-600 hidden"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                        <input type="password" name="new_password" id="new_password"
+                               class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                      focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                      text-base">
+                        <ul class="mt-2 text-sm text-gray-500 space-y-1">
+                            <li>• Must be at least 8 characters</li>
+                            <li>• Can't be too similar to your personal information</li>
+                            <li>• Can't be a commonly used password</li>
+                            <li>• Can't be entirely numeric</li>
+                        </ul>
+                        <div id="new_password_error" class="mt-2 text-sm text-red-600 hidden"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+                        <input type="password" name="confirm_password" id="confirm_password"
+                               class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
+                                      focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
+                                      text-base">
+                        <div id="confirm_password_error" class="mt-2 text-sm text-red-600 hidden"></div>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <button type="submit"
+                            class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
+                                   text-base font-medium rounded-md text-white bg-[#0088CC] 
+                                   hover:bg-[#006DA3] focus:outline-none focus:ring-2 
+                                   focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
+                        Change Password
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Print Image Tab -->
+        <div x-show="activeTab === 'print_image'" class="space-y-6 max-w-2xl mt-6">
+            <form method="post" id="printSettingsForm" action="{% url 'dashboard:print_image_settings' %}">
+                {% csrf_token %}
+                
+                <!-- Dropbox Settings -->
+                <div class="mt-8 space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-medium text-gray-900">Dropbox Integration</h3>
+                        <div class="relative inline-block w-12 mr-2 align-middle select-none">
+                            <input type="checkbox" name="use_dropbox" id="use_dropbox" 
+                                   {% if print_settings.use_dropbox %}checked{% endif %}
+                                   class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer">
+                            <label for="use_dropbox" 
+                                   class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
+                        </div>
+                    </div>
+
+                    <div id="dropboxSettings" class="space-y-4 {% if not print_settings.use_dropbox %}hidden{% endif %}">
+                        {% if not print_settings.dropbox_access_token %}
+                            <div class="mt-4">
+                                <a href="{% url 'dashboard:dropbox_auth' %}" 
+                                   class="inline-flex items-center px-6 py-3 border border-transparent text-base 
+                                          font-medium rounded-md text-white bg-[#0088CC] hover:bg-[#006DA3]">
+                                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/>
+                                        <path d="M10 12l-3-3h6l-3 3z"/>
+                                    </svg>
+                                    Connect to Dropbox
+                                </a>
+                            </div>
+                        {% else %}
+                            <div class="mt-4 p-4 rounded-md bg-green-50">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center">
+                                        <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                        </svg>
+                                        <span class="ml-2 text-sm font-medium text-green-800">
+                                            Dropbox Connection Active
+                                        </span>
                                     </div>
-                                {% endif %}
-                            {% endfor %}
+                                    <a href="{% url 'dashboard:dropbox_disconnect' %}" 
+                                       class="inline-flex items-center px-3 py-1 border border-transparent text-sm 
+                                              font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
+                                        Disconnect
+                                    </a>
+                                </div>
+                            </div>
                         {% endif %}
-                        
-                        <!-- Name Fields -->
-                        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
-                                <input type="text" name="first_name" value="{{ user.first_name }}"
-                                       class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                              focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                              text-base">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
-                                <input type="text" name="last_name" value="{{ user.last_name }}"
-                                       class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                              focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                              text-base">
-                            </div>
-                        </div>
-                        
-                        <!-- Email Field -->
-                        <div class="mt-6">
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="block text-sm font-medium text-gray-700">Email Address</label>
-                                <button type="button" 
-                                        @click="isEmailEditable = !isEmailEditable"
-                                        class="text-sm text-[#0088CC] hover:text-[#006DA3] font-medium focus:outline-none">
-                                    <span x-text="isEmailEditable ? 'Cancel' : 'Change Email Address'"></span>
-                                </button>
-                            </div>
-                            <div class="relative">
-                                <input type="email" 
-                                       name="email" 
-                                       value="{{ user.email }}"
-                                       :readonly="!isEmailEditable"
-                                       :class="{'bg-gray-50': !isEmailEditable, 'cursor-not-allowed': !isEmailEditable}"
-                                       class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                              focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                              text-base">
-                                <div x-show="!isEmailEditable" 
-                                     class="absolute inset-0 bg-gray-50 bg-opacity-50 cursor-not-allowed">
-                                </div>
-                            </div>
-                            <p class="mt-2 text-sm text-gray-500" x-show="isEmailEditable">
-                                You'll need to verify your new email address. After saving, you'll be logged out and 
-                                need to verify the new email before logging in again.
-                            </p>
-                        </div>
-
-                        <div class="mt-6 flex items-center justify-between">
-                            <button type="submit"
-                                    class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
-                                           text-base font-medium rounded-md text-white bg-[#0088CC] 
-                                           hover:bg-[#006DA3] focus:outline-none focus:ring-2 
-                                           focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
-                                Save Changes
-                            </button>
-                            <span x-show="isEmailEditable" class="text-sm text-gray-500">
-                                * Email change requires verification
-                            </span>
-                        </div>
-                    </form>
+                    </div>
                 </div>
 
-                <!-- Company Tab -->
-                <div x-show="activeTab === 'company'" class="space-y-6 max-w-2xl mt-6">
-                    <form method="post" action="{% url 'dashboard:update_company' %}">
-                        {% csrf_token %}
-                        <div class="space-y-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Company Name</label>
-                                <input type="text" name="name" value="{{ company.name|default:'' }}"
-                                       class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                              focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                              text-base">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Tax ID</label>
-                                <input type="text" name="tax_id" value="{{ company.tax_id|default:'' }}"
-                                       class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                              focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                              text-base">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Address</label>
-                                <textarea name="address" rows="4"
-                                          class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                                 focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                                 text-base">{{ company.address|default:'' }}</textarea>
-                            </div>
-                        </div>
-
-                        <div class="mt-6">
-                            <button type="submit"
-                                    class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
-                                           text-base font-medium rounded-md text-white bg-[#0088CC] 
-                                           hover:bg-[#006DA3] focus:outline-none focus:ring-2 
-                                           focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
-                                Save Company Details
-                            </button>
-                        </div>
-                    </form>
+                <div class="mt-6">
+                    <button type="submit"
+                            class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
+                                   text-base font-medium rounded-md text-white bg-[#0088CC] 
+                                   hover:bg-[#006DA3] focus:outline-none focus:ring-2 
+                                   focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
+                        Save Settings
+                    </button>
                 </div>
-
-                <!-- Security Tab -->
-                <div x-show="activeTab === 'security'" class="space-y-6 max-w-2xl mt-6">
-                    <form method="post" action="{% url 'dashboard:change_password' %}" id="passwordForm">
-                        {% csrf_token %}
-                        <div class="space-y-6">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Current Password</label>
-                                <input type="password" name="current_password" id="current_password"
-                                       class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                              focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                              text-base">
-                                <div id="current_password_error" class="mt-2 text-sm text-red-600 hidden"></div>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-                                <input type="password" name="new_password" id="new_password"
-                                       class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                              focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                              text-base">
-                                <ul class="mt-2 text-sm text-gray-500 space-y-1">
-                                    <li>• Must be at least 8 characters</li>
-                                    <li>• Can't be too similar to your personal information</li>
-                                    <li>• Can't be a commonly used password</li>
-                                    <li>• Can't be entirely numeric</li>
-                                </ul>
-                                <div id="new_password_error" class="mt-2 text-sm text-red-600 hidden"></div>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
-                                <input type="password" name="confirm_password" id="confirm_password"
-                                       class="block w-full px-4 py-3 rounded-md border-gray-300 shadow-sm 
-                                              focus:border-[#0088CC] focus:ring focus:ring-[#0088CC] focus:ring-opacity-50
-                                              text-base">
-                                <div id="confirm_password_error" class="mt-2 text-sm text-red-600 hidden"></div>
-                            </div>
-                        </div>
-
-                        <div class="mt-6">
-                            <button type="submit"
-                                    class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
-                                           text-base font-medium rounded-md text-white bg-[#0088CC] 
-                                           hover:bg-[#006DA3] focus:outline-none focus:ring-2 
-                                           focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
-                                Change Password
-                            </button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Print Image Tab -->
-                <div x-show="activeTab === 'print_image'" class="space-y-6 max-w-2xl mt-6">
-                    <form method="post" id="printSettingsForm" action="{% url 'dashboard:print_image_settings' %}">
-                        {% csrf_token %}
-                        
-                        <!-- Dropbox Settings -->
-                        <div class="mt-8 space-y-6">
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-lg font-medium text-gray-900">Dropbox Integration</h3>
-                                <div class="relative inline-block w-12 mr-2 align-middle select-none">
-                                    <input type="checkbox" name="use_dropbox" id="use_dropbox" 
-                                           {% if print_settings.use_dropbox %}checked{% endif %}
-                                           class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer">
-                                    <label for="use_dropbox" 
-                                           class="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-                                </div>
-                            </div>
-
-                            <div id="dropboxSettings" class="space-y-4 {% if not print_settings.use_dropbox %}hidden{% endif %}">
-                                {% if not print_settings.dropbox_access_token %}
-                                    <div class="mt-4">
-                                        <a href="{% url 'dashboard:dropbox_auth' %}" 
-                                           class="inline-flex items-center px-6 py-3 border border-transparent text-base 
-                                                  font-medium rounded-md text-white bg-[#0088CC] hover:bg-[#006DA3]">
-                                            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                                                <path d="M10 2C5.58 2 2 5.58 2 10s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/>
-                                                <path d="M10 12l-3-3h6l-3 3z"/>
-                                            </svg>
-                                            Connect to Dropbox
-                                        </a>
-                                    </div>
-                                {% else %}
-                                    <div class="mt-4 p-4 rounded-md bg-green-50">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-                                                </svg>
-                                                <span class="ml-2 text-sm font-medium text-green-800">
-                                                    Dropbox Connection Active
-                                                </span>
-                                            </div>
-                                            <a href="{% url 'dashboard:dropbox_disconnect' %}" 
-                                               class="inline-flex items-center px-3 py-1 border border-transparent text-sm 
-                                                      font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
-                                                Disconnect
-                                            </a>
-                                        </div>
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-
-                        <div class="mt-6">
-                            <button type="submit"
-                                    class="inline-flex justify-center py-3 px-6 border border-transparent shadow-sm 
-                                           text-base font-medium rounded-md text-white bg-[#0088CC] 
-                                           hover:bg-[#006DA3] focus:outline-none focus:ring-2 
-                                           focus:ring-offset-2 focus:ring-[#0088CC] transition-colors duration-200">
-                                Save Settings
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>

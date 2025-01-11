@@ -43,7 +43,8 @@ def home(request):
     
     context = {
         'total_orders': total_orders,
-        'active_tab': 'home'
+        'active_tab': 'home',
+        'title': 'Dashboard'
     }
     return render(request, 'dashboard/home.html', context)
 
@@ -68,7 +69,8 @@ def settings_view(request):
     
     context = {
         'print_settings': print_settings,
-        'active_tab': 'settings'
+        'active_tab': 'settings',
+        'title': 'Settings'
     }
     
     return render(request, 'dashboard/settings.html', context)
@@ -299,10 +301,32 @@ def change_password(request):
 @login_required
 def orders(request):
     """Orders ana sayfası"""
+    # Arama parametresini al
+    search_query = request.GET.get('search', '')
+    
+    if search_query:
+        # OrderDetail'de ara
+        orders = OrderDetail.objects.filter(
+            etsy_order_number__icontains=search_query
+        ).select_related('batch')
+        
+        context = {
+            'orders': orders,
+            'active_tab': 'orders',
+            'search_query': search_query,
+            'is_search_result': True,
+            'title': 'Orders'
+        }
+        return render(request, 'dashboard/orders/list.html', context)
+    
+    # Eğer arama yapılmadıysa, normal batch listesini göster
     batches = BatchOrder.objects.all()
+    
     context = {
         'batches': batches,
-        'active_tab': 'orders'
+        'active_tab': 'orders',
+        'is_search_result': False,
+        'title': 'Orders'
     }
     return render(request, 'dashboard/orders/list.html', context)
 
@@ -769,7 +793,8 @@ def order_detail(request, order_id):
         
         return render(request, 'dashboard/orders/detail.html', {
             'batch': batch,
-            'active_tab': 'orders'
+            'active_tab': 'orders',
+            'title': f'Order #{order_id}'
         })
         
     except Exception as e:
@@ -1026,7 +1051,8 @@ def single_order_detail(request, batch_id, etsy_order_number):
             'batch': batch,
             'order': order,
             'single_order': True,
-            'active_tab': 'orders'
+            'active_tab': 'orders',
+            'title': f'Order #{etsy_order_number}'
         })
         
     except Exception as e:
