@@ -182,7 +182,7 @@ for dir_path in MEDIA_DIRS:
 # File upload settings
 FILE_UPLOAD_PERMISSIONS = 0o644  # rw-r--r--
 FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755  # rwxr-xr-x
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880  # 5MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 524288000  # 500MB
 
 # Security Settings
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
