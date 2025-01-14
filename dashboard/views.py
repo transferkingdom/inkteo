@@ -346,7 +346,7 @@ def upload_orders(request):
             if pdf_file.size > 524288000:  # 500MB
                 return JsonResponse({
                     'status': 'error',
-                    'message': 'PDF file size must be less than 500MB'
+                    'message': f'PDF file size ({pdf_file.size / 1024 / 1024:.1f}MB) exceeds maximum allowed size (500MB)'
                 }, status=413)
             
             # Batch order oluştur

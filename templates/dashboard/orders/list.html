@@ -204,6 +204,16 @@ document.getElementById('pdf-upload').addEventListener('change', async function(
         type: file.type
     });
 
+    // Dosya boyutu kontrolü (500MB = 524288000 bytes)
+    if (file.size > 524288000) {
+        updateProgress(100, 'Error: PDF file size must be less than 500MB', 'error');
+        e.target.value = '';
+        setTimeout(() => {
+            showProgress(false);
+        }, 3000);
+        return;
+    }
+
     try {
         // Show progress bar
         showProgress(true);
@@ -216,11 +226,17 @@ document.getElementById('pdf-upload').addEventListener('change', async function(
 
         debugLog('Sending request to server...');
         
-        // Send request
+        // Send request with increased timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 dakika timeout
+
         const response = await fetch('{% url "dashboard:upload_orders" %}', {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         debugLog('Server response received:', {
             status: response.status,
