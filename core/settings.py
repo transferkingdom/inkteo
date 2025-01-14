@@ -276,12 +276,12 @@ if DEBUG:
 
 # CSRF Ayarları
 CSRF_USE_SESSIONS = True
-CSRF_COOKIE_SECURE = not DEBUG  # Development'ta False, Production'da True
+CSRF_COOKIE_SECURE = False  # Development için False
 CSRF_COOKIE_HTTPONLY = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 
 # Session Ayarları
-SESSION_COOKIE_SECURE = not DEBUG  # Development'ta False, Production'da True
+SESSION_COOKIE_SECURE = False  # Development için False
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
@@ -382,3 +382,10 @@ if DEBUG:
     DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL_LOCAL', 'http://localhost:8000/dashboard/settings/dropbox/callback')
 else:
     DROPBOX_OAUTH_CALLBACK_URL = os.environ.get('DROPBOX_OAUTH_CALLBACK_URL', 'https://orders.inkteo.com/dashboard/settings/dropbox/callback')
+
+# Form processing settings
+DATA_UPLOAD_MAX_MEMORY_SIZE = 524288000  # 500MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 524288000  # 500MB
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000
+CSRF_COOKIE_SECURE = False  # Development için False
+SESSION_COOKIE_SECURE = False  # Development için False

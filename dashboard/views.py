@@ -342,6 +342,13 @@ def upload_orders(request):
                     'message': 'No PDF file uploaded'
                 })
             
+            # Dosya boyutu kontrolü
+            if pdf_file.size > 524288000:  # 500MB
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'PDF file size must be less than 500MB'
+                }, status=413)
+            
             # Batch order oluştur
             batch = BatchOrder.objects.create(
                 user=request.user,
